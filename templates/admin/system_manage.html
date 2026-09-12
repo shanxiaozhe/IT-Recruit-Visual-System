@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}用户管理 - 管理员{% endblock %}
+{% block content %}
+<style>
+    .modal .form-control{border-radius:10px;border:1px solid #c1c1c1}
+    .modal .modal-content{border-radius:20px;border:none;box-shadow:rgba(0,0,0,0.1) 0 8px 24px}
+    .filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:#f8fafc;border-radius:12px}
+    .table-wrap{overflow-x:auto}
+</style>
+<h4 class="page-title"><i class="bi bi-users me-2"></i>用户管理</h4>
+<div class="card p-4 mb-3">
+    <form class="filter-bar" method="get">
+        <input type="text" name="keyword" class="form-control" style="width:240px;border-radius:10px" placeholder="请输入用户名" value="{{ keyword }}">
+        <select name="role" class="form-select" style="width:120px;border-radius:10px">
+            <option value="">用户角色: 全部</option>
+            <option value="user" {% if role == 'user' %}selected{% endif %}>普通用户</option>
+            <option value="admin" {% if role == 'admin' %}selected{% endif %}>管理员</option>
+        </select>
+        <button type="submit" class="btn btn-primary" style="border-radius:10px"><i class="bi bi-search"></i> 查询</button>
+        <button type="button" class="btn btn-outline-secondary" style="border-radius:10px" onclick="resetFilter()"><i class="bi bi-arrow-counterclockwise"></i> 重置</button>
+        <div class="ms-auto">
+            <button class="btn btn-danger" style="border-radius:10px" onclick="batchDelete()"><i class="bi bi-trash"></i> 批量删除</button>
+        </div>
+    </form>
+    
+    <div class="table-wrap">
+    <table class="table table-hover align-middle mb-0">
+        <thead><tr><th><input type="checkbox" onchange="selectAll(this)"></th><th>ID</th><th>用户名</th><th>昵称</th><th>角色</th><th>注册时间</th><th style="width:140px">操作</th></tr></thead>
+        <tbody>
+        {% for u in pagination.items %}
+        <tr>
+            <td><input type="checkbox" class="user-checkbox" value="{{ u.id }}"></td>
+            <td>{{ u.id }}</td>
+            <td><i class="bi bi-person-circle me-1"></i>{{ u.username }}</td>
+            <td>{{ u.nickname if u.nickname else '-' }}</td>
+            <td>{% if u.role == 'admin' %}<span class="badge bg-primary">管理员</span>{% else %}<span class="badge bg-secondary">普通用户</span>{% endif %}</td>
+            <td class="text-muted" style="font-size:13px">{{ u.created_at.strftime('%Y-%m-%d %H:%M:%S') if u.created_at else '-' }}</td>
+            <td style="white-space:nowrap">
+                {% if u.role != 'admin' %}
+                <button class="btn btn-sm btn-outline-info d-inline-flex align-items-center" style="margin-right:4px" onclick="openEdit({{ u.id }}, '{{ u.username|e }}', '{{ u.nickname|e if u.nickname else '' }}')"><i class="bi bi-pencil"></i><span style="margin-left:4px">编辑</span></button>
+                <form method="post" action="{{ url_for('admin_delete_user', uid=u.id) }}" style="display:inline" onsubmit="return confirm('确认删除用户 {{ u.username }}？')">
+                    <button class="btn btn-sm btn-outline-danger d-inline-flex align-items-center"><i class="bi bi-trash"></i><span style="margin-left:4px">删除</span></button>
+                </form>
+                {% else %}
+                <span class="text-muted" style="font-size:12px">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-between mt-3 align-items-center">
+        <span class="text-muted" style="font-size:13px">共 {{ pagination.total }} 条</span>
+        <nav><ul class="pagination mb-0">
+            {% if pagination.has_prev %}<li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}&keyword={{ keyword }}&role={{ role }}">&laquo;</a></li>{% endif %}
+            {% for p in pagination.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+                {% if p %}<li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&keyword={{ keyword }}&role={{ role }}">{{ p }}</a></li>
+                {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}<li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}&keyword={{ keyword }}&role={{ role }}">&raquo;</a></li>{% endif %}
+        </ul></nav>
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:13px">10条/页</span>
+        </div>
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-between mt-3 align-items-center">
+        <span class="text-muted" style="font-size:13px">共 {{ pagination.total }} 条</span>
+        <div></div>
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:13px">10条/页</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card p-4">
+    <h5 class="mb-3" style="font-weight:600"><i class="bi bi-key me-2"></i>修改管理员密码</h5>
+    <form method="post" action="{{ url_for('admin_change_password') }}">
+        <div class="row g-3">
+            <div class="col-md-4"><label class="form-label" style="font-size:13px">原密码</label><input type="password" name="old_password" class="form-control" style="border-radius:10px" required></div>
+            <div class="col-md-4"><label class="form-label" style="font-size:13px">新密码</label><input type="password" name="new_password" class="form-control" style="border-radius:10px" required></div>
+            <div class="col-md-4"><label class="form-label" style="font-size:13px">确认新密码</label><input type="password" name="confirm_password" class="form-control" style="border-radius:10px" required></div>
+        </div>
+        <button class="btn btn-primary mt-3" style="border-radius:10px"><i class="bi bi-check-lg me-1"></i>修改密码</button>
+    </form>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil me-2"></i>编辑用户</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form method="post" id="editForm">
+    <div class="modal-body">
+        <div class="mb-3"><label class="form-label">用户名（用于登录）</label><input name="username" id="eUsername" class="form-control" required></div>
+        <div class="mb-3"><label class="form-label">昵称（显示用）</label><input name="nickname" id="eNickname" class="form-control" placeholder="可选"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>保存</button></div>
+    </form>
+</div></div></div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function openEdit(id, username, nickname) {
+    document.getElementById('editForm').action = '/admin/user/edit/' + id;
+    document.getElementById('eUsername').value = username;
+    document.getElementById('eNickname').value = nickname;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+function selectAll(checkBox) {
+    var checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(function(cb) {
+        cb.checked = checkBox.checked;
+    });
+}
+
+function batchDelete() {
+    var checkedIds = [];
+    document.querySelectorAll('.user-checkbox:checked').forEach(function(cb) {
+        checkedIds.push(cb.value);
+    });
+    if (checkedIds.length === 0) {
+        alert('请先选择要删除的用户');
+        return;
+    }
+    if (confirm('确认删除选中的 ' + checkedIds.length + ' 个用户？')) {
+        fetch('/admin/user/batch_delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: checkedIds })
+        }).then(function() {
+            window.location.reload();
+        });
+    }
+}
+
+function resetFilter() {
+    window.location.href = '{{ url_for('admin_system_manage') }}';
+}
+</script>
+{% endblock %}

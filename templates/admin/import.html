@@ -1,0 +1,519 @@
+{% extends 'base.html' %}
+{% block title %}CSV数据导入 - 管理员{% endblock %}
+{% block content %}
+<style>
+    /* 步骤导航 */
+    .step-wizard{display:flex;align-items:center;justify-content:center;margin-bottom:32px;padding:16px 0;border-bottom:1px solid #e2e8f0}
+    .step-item{display:flex;align-items:center}
+    .step{display:flex;flex-direction:column;align-items:center;width:140px}
+    .step-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;margin-bottom:8px;border:2px solid #cbd5e1;color:#94a3b8;background:#fff;transition:all .3s}
+    .step.active .step-num{background:#2563eb;border-color:#2563eb;color:#fff}
+    .step.done .step-num{background:#22c55e;border-color:#22c55e;color:#fff}
+    .step-title{font-size:14px;font-weight:600;color:#3a3a3a}
+    .step.active .step-title{color:#1e40af;font-weight:700}
+    .step.done .step-title{color:#166534;font-weight:700}
+    .step-line{width:60px;height:2px;background:#cbd5e1;margin:0 10px}
+    .step.active + .step-line{background:#2563eb}
+    .step.done + .step-line{background:#22c55e}
+    
+    /* 卡片样式 */
+    .main-card{border:1px solid #e2e8f0;border-radius:16px;padding:24px;min-height:420px;display:flex;flex-direction:column;}
+    
+    /* 上传区域 */
+    .upload-area{border:2px dashed #cbd5e1;border-radius:16px;padding:32px;text-align:center;transition:all .2s;cursor:pointer}
+    .upload-area:hover,.upload-area.dragover{border-color:#2563eb;background:#f0f7ff}
+    .upload-icon{width:80px;height:80px;border-radius:50%;background:#e0f2fe;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
+    .upload-icon i{font-size:40px;color:#0ea5e9}
+    
+    /* 预览表格 */
+    .preview-table{max-height:280px;overflow-y:auto}
+    .preview-table th{position:sticky;top:0;background:#f8fafc}
+    
+    /* 环形图容器 */
+    .quality-chart-wrapper{width:160px;height:160px;margin:0 auto 16px}
+    .quality-chart{width:100%;height:100%}
+    
+    /* 进度条 */
+    .progress-bar{height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden}
+    .progress-fill{height:100%;background:#2563eb;border-radius:4px;transition:width .3s}
+</style>
+<h4 class="page-title"><i class="bi bi-file-csv me-2"></i>CSV数据导入</h4>
+
+<!-- 步骤导航 -->
+<div class="step-wizard">
+    <div class="step-item">
+        <div class="step active" id="step1">
+            <div class="step-num">1</div>
+            <div class="step-title">上传文件</div>
+        </div>
+    </div>
+    <div class="step-line" id="line1"></div>
+    <div class="step-item">
+        <div class="step" id="step2">
+            <div class="step-num">2</div>
+            <div class="step-title">数据预览</div>
+        </div>
+    </div>
+    <div class="step-line" id="line2"></div>
+    <div class="step-item">
+        <div class="step" id="step3">
+            <div class="step-num">3</div>
+            <div class="step-title">导入结果</div>
+        </div>
+    </div>
+</div>
+
+<!-- 阶段1：上传文件 -->
+<div id="stage1" class="row" style="gap: 16px;">
+    <!-- 左侧：上传文件 -->
+    <div class="col-md-4" style="flex: 0 0 auto; width: calc(33.333% - 11px);">
+        <div class="main-card">
+            <h5 style="font-weight:600;margin-bottom:20px">上传文件</h5>
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');handleDrop(event)">
+                <div class="upload-icon">
+                    <i class="bi bi-cloud-upload"></i>
+                </div>
+                <div style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:6px">将文件拖拽到此处，或点击上传</div>
+                <div style="font-size:15px;color:#3a3a3a;font-weight:500">支持 .csv 格式</div>
+                <input type="file" id="fileInput" accept=".csv" class="d-none" onchange="handleFile(this)">
+            </div>
+            <button class="btn btn-primary w-100 mt-4" style="border-radius:8px;height:40px" onclick="document.getElementById('fileInput').click()">
+                <i class="bi bi-folder-open me-2"></i>选择文件
+            </button>
+        </div>
+    </div>
+    
+    <!-- 中间：数据预览 -->
+    <div class="col-md-4" style="flex: 0 0 auto; width: calc(33.333% - 11px);">
+        <div class="main-card">
+            <h5 style="font-weight:600;margin-bottom:20px">数据预览</h5>
+            <div class="text-center py-12">
+                <div style="width:64px;height:64px;border-radius:16px;background:#e0f2fe;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:28px">
+                    <i class="bi bi-file-text" style="color:#0ea5e9"></i>
+                </div>
+                <div style="font-size:16px;font-weight:600;color:#2a2a2a;margin-bottom:4px">等待上传文件</div>
+                <div style="font-size:14px;color:#3a3a3a;font-weight:500">上传后显示预览</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧：数据质量检查 -->
+    <div class="col-md-4" style="flex: 0 0 auto; width: calc(33.333% - 11px);">
+        <div class="main-card">
+            <h5 style="font-weight:600;margin-bottom:20px">数据质量检查</h5>
+            <div class="text-center py-8">
+                <div style="width:64px;height:64px;border-radius:16px;background:#fef3c7;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:28px">
+                    <i class="bi bi-search" style="color:#f59e0b"></i>
+                </div>
+                <div style="font-size:16px;font-weight:600;color:#2a2a2a;margin-bottom:8px">暂无检测结果</div>
+            </div>
+            <div style="font-size:14px;color:#3a3a3a;font-weight:500">上传文件后系统将自动分析：</div>
+            <ul style="margin:10px 0 0 20px;padding:0;font-size:14px;color:#2a2a2a;font-weight:500">
+                <li style="margin-bottom:5px"><span style="color:#166534">✓</span> 字段完整性</li>
+                <li style="margin-bottom:5px"><span style="color:#166534">✓</span> 缺失值数量</li>
+                <li style="margin-bottom:5px"><span style="color:#166534">✓</span> 数据格式异常</li>
+                <li><span style="color:#166534">✓</span> 重复记录</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- 阶段2：数据预览 -->
+<div id="stage2" class="row" style="gap: 16px; display: none;">
+    <!-- 左侧：文件信息 -->
+    <div class="col-md-4" style="flex: 0 0 auto; width: calc(33.333% - 11px);">
+        <div class="main-card">
+            <h5 style="font-weight:600;margin-bottom:20px">文件信息</h5>
+            <div style="margin-bottom:18px">
+                <div style="font-size:15px;color:#3a3a3a;font-weight:600;margin-bottom:5px">文件名：</div>
+                <div style="font-size:16px;font-weight:600;color:#1a1a1a" id="fileNameDisplay"></div>
+            </div>
+            <div style="margin-bottom:18px">
+                <div style="font-size:15px;color:#3a3a3a;font-weight:600;margin-bottom:5px">大小：</div>
+                <div style="font-size:16px;font-weight:600;color:#1a1a1a" id="fileSizeDisplay"></div>
+            </div>
+            <div style="margin-bottom:18px">
+                <div style="font-size:15px;color:#3a3a3a;font-weight:600;margin-bottom:5px">记录数：</div>
+                <div style="font-size:16px;font-weight:600;color:#1a1a1a" id="recordCountDisplay"></div>
+            </div>
+            <button class="btn btn-secondary w-100" style="border-radius:8px;height:40px" onclick="goBackToStage1()">
+                <i class="bi bi-arrow-left me-2"></i>重新上传
+            </button>
+        </div>
+    </div>
+    
+    <!-- 中间：数据预览 -->
+    <div class="col-md-4" style="flex: 0 0 auto; width: calc(33.333% - 11px);">
+        <div class="main-card">
+            <h5 style="font-weight:600;margin-bottom:16px">数据预览（共 <span id="previewCount">0</span> 条）</h5>
+            <div class="preview-table" style="flex:1;">
+                <table class="table table-sm table-hover mb-0" style="font-size:14px">
+                    <thead>
+                        <tr style="color:#2a2a2a;font-weight:600">
+                            <th style="width:25%">岗位名称</th>
+                            <th style="width:25%">公司名称</th>
+                            <th style="width:15%">城市</th>
+                            <th style="width:18%">薪资范围</th>
+                            <th style="width:17%">学历要求</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex gap-3 mt-4">
+                <button class="btn btn-secondary flex-1" style="border-radius:8px" onclick="goBackToStage1()">取消</button>
+                <button class="btn btn-primary flex-1" style="border-radius:8px" onclick="startImport()">
+                    <i class="bi bi-arrow-right me-1"></i>下一步
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧：数据质量检查 -->
+    <div class="col-md-4" style="flex: 0 0 auto; width: calc(33.333% - 11px);">
+        <div class="main-card">
+            <h5 style="font-weight:600;margin-bottom:16px">字段完整性检测</h5>
+            <div class="quality-chart-wrapper">
+                <canvas id="qualityChart" class="quality-chart"></canvas>
+            </div>
+            <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="width:14px;height:14px;border-radius:50%;background:#1e40af"></span>
+                        <span style="font-size:15px;color:#2a2a2a;font-weight:600">完整</span>
+                    </div>
+                    <span style="font-size:15px;font-weight:700;color:#1a1a1a" id="statComplete">-</span>
+                </div>
+            </div>
+            <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="width:14px;height:14px;border-radius:50%;background:#d97706"></span>
+                        <span style="font-size:15px;color:#2a2a2a;font-weight:600">缺失</span>
+                    </div>
+                    <span style="font-size:15px;font-weight:700;color:#1a1a1a" id="statMissing">-</span>
+                </div>
+            </div>
+            <div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="width:14px;height:14px;border-radius:50%;background:#dc2626"></span>
+                        <span style="font-size:15px;color:#2a2a2a;font-weight:600">错误</span>
+                    </div>
+                    <span style="font-size:15px;font-weight:700;color:#1a1a1a" id="statError">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 阶段3：导入中 -->
+<div id="stage3" class="row" style="gap: 16px; display: none;">
+    <div class="col-md-12">
+        <div class="main-card text-center">
+            <h5 style="font-weight:600;margin-bottom:32px">正在导入数据...</h5>
+            <div style="max-width:400px;margin:0 auto">
+                <div style="font-size:14px;color:#64748b;margin-bottom:8px">导入进度：</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+                </div>
+                <div style="font-size:14px;font-weight:600;color:#2563eb;margin-top:12px" id="progressText">0/0</div>
+                <div style="font-size:13px;color:#64748b;margin-top:8px" id="progressStatus">正在初始化...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 阶段4：导入完成 -->
+<div id="stage4" class="row" style="gap: 16px; display: none;">
+    <div class="col-md-12">
+        <div class="main-card text-center">
+            <div style="width:100px;height:100px;border-radius:50%;background:#dcfce7;margin:0 auto 24px;display:flex;align-items:center;justify-content:center">
+                <i class="bi bi-check-circle" style="font-size:56px;color:#22c55e"></i>
+            </div>
+            <h5 style="font-size:20px;font-weight:600;color:#1e293b;margin-bottom:40px">导入成功！</h5>
+            
+            <div style="display:flex;justify-content:center;gap:64px;max-width:500px;margin:0 auto">
+                <div style="text-align:center">
+                    <div style="font-size:32px;font-weight:600;color:#22c55e" id="resultSuccess">0</div>
+                    <div style="font-size:14px;color:#64748b">成功</div>
+                </div>
+                <div style="text-align:center">
+                    <div style="font-size:32px;font-weight:600;color:#ef4444" id="resultFailed">0</div>
+                    <div style="font-size:14px;color:#64748b">失败</div>
+                </div>
+                <div style="text-align:center">
+                    <div style="font-size:32px;font-weight:600;color:#f59e0b" id="resultDuplicate">0</div>
+                    <div style="font-size:14px;color:#64748b">重复</div>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-3 mt-16" style="max-width:400px;margin:0 auto">
+                <button class="btn btn-secondary flex-1" style="border-radius:8px;height:44px" onclick="goBackToStage1()">
+                    <i class="bi bi-arrow-left me-2"></i>返回管理
+                </button>
+                <button class="btn btn-primary flex-1" style="border-radius:8px;height:44px" onclick="goToList()">
+                    <i class="bi bi-list me-2"></i>查看数据
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var selectedFile = null;
+var importData = [];
+var importFilename = '';
+
+function handleFile(input) {
+    if (input.files.length > 0) {
+        selectedFile = input.files[0];
+        uploadFile();
+    }
+}
+
+function handleDrop(event) {
+    var files = event.dataTransfer.files;
+    if (files.length > 0 && files[0].name.endsWith('.csv')) {
+        selectedFile = files[0];
+        uploadFile();
+    }
+}
+
+function uploadFile() {
+    var formData = new FormData();
+    formData.append('file', selectedFile);
+    
+    document.getElementById('stage1').style.display = 'none';
+    document.getElementById('stage3').style.display = 'flex';
+    updateProgress(0, 100, '正在解析文件...');
+    
+    fetch('/admin/import_csv', {
+        method: 'POST',
+        body: formData
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            importData = data.data;
+            importFilename = data.filename || selectedFile.name;
+            showStage2();
+        }
+    });
+}
+
+function showStage2() {
+    document.getElementById('step1').classList.remove('active');
+    document.getElementById('step1').classList.add('done');
+    document.getElementById('step1').querySelector('.step-num').innerHTML = '<i class="bi bi-check"></i>';
+    document.getElementById('line1').style.background = '#22c55e';
+    
+    document.getElementById('step2').classList.add('active');
+    
+    document.getElementById('fileNameDisplay').textContent = selectedFile.name;
+    document.getElementById('fileSizeDisplay').textContent = formatFileSize(selectedFile.size);
+    document.getElementById('recordCountDisplay').textContent = importData.length + '条';
+    
+    renderPreview();
+    calculateQuality();
+    
+    document.getElementById('stage3').style.display = 'none';
+    document.getElementById('stage2').style.display = 'flex';
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderPreview() {
+    document.getElementById('previewCount').textContent = importData.length;
+    
+    var tbody = document.getElementById('previewTableBody');
+    tbody.innerHTML = '';
+    
+    var displayData = importData.slice(0, 8);
+    displayData.forEach(function(row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.name || '-'}</td>
+            <td>${row.company || '-'}</td>
+            <td>${row.location || '-'}</td>
+            <td>${row.salary || '-'}</td>
+            <td>${row.edu || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    if (importData.length > 8) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="5" class="text-center text-muted" style="font-size:12px">... 还有 ${importData.length - 8} 条数据</td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+function calculateQuality() {
+    var complete = 0, missing = 0, error = 0;
+    importData.forEach(function(row) {
+        var hasAll = row.name && row.company && row.location && row.salary && row.edu;
+        if (hasAll) {
+            complete++;
+        } else {
+            missing++;
+        }
+    });
+    
+    var total = complete + missing + error;
+    var completePercent = total > 0 ? ((complete / total) * 100).toFixed(1) : 0;
+    var missingPercent = total > 0 ? ((missing / total) * 100).toFixed(1) : 0;
+    var errorPercent = total > 0 ? ((error / total) * 100).toFixed(1) : 0;
+    
+    document.getElementById('statComplete').textContent = completePercent + '%';
+    document.getElementById('statMissing').textContent = missingPercent + '%';
+    document.getElementById('statError').textContent = errorPercent + '%';
+    
+    drawPieChart(complete, missing, error);
+}
+
+function drawPieChart(complete, missing, error) {
+    var canvas = document.getElementById('qualityChart');
+    var ctx = canvas.getContext('2d');
+    var size = 160;
+    canvas.width = size;
+    canvas.height = size;
+    
+    var centerX = size / 2, centerY = size / 2;
+    var radius = size / 2 - 10;
+    
+    var colors = ['#2563eb', '#f59e0b', '#ef4444'];
+    var data = [complete, missing, error];
+    var total = complete + missing + error;
+    if (total === 0) total = 1;
+    
+    ctx.clearRect(0, 0, size, size);
+    
+    var startAngle = -Math.PI / 2;
+    
+    data.forEach(function(value, index) {
+        var sliceAngle = (value / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        ctx.fillStyle = colors[index];
+        ctx.fill();
+        startAngle += sliceAngle;
+    });
+    
+    var innerRadius = radius * 0.65;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('检测完成', centerX, centerY - 4);
+}
+
+function goBackToStage1() {
+    document.querySelectorAll('.step').forEach(function(s) {
+        s.classList.remove('active', 'done');
+        s.querySelector('.step-num').innerHTML = s.querySelector('.step-num').textContent.replace(/[^\d]/g, '');
+    });
+    document.getElementById('step1').classList.add('active');
+    document.getElementById('line1').style.background = '#cbd5e1';
+    document.getElementById('line2').style.background = '#cbd5e1';
+    
+    selectedFile = null;
+    importData = [];
+    document.getElementById('fileInput').value = '';
+    
+    document.getElementById('stage2').style.display = 'none';
+    document.getElementById('stage3').style.display = 'none';
+    document.getElementById('stage4').style.display = 'none';
+    document.getElementById('stage1').style.display = 'flex';
+}
+
+function startImport() {
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('step2').classList.add('done');
+    document.getElementById('step2').querySelector('.step-num').innerHTML = '<i class="bi bi-check"></i>';
+    document.getElementById('line2').style.background = '#22c55e';
+    document.getElementById('step3').classList.add('active');
+    
+    document.getElementById('stage2').style.display = 'none';
+    document.getElementById('stage3').style.display = 'flex';
+    
+    simulateImport();
+}
+
+function simulateImport() {
+    var total = importData.length;
+    var processed = 0;
+    var batchSize = Math.max(1, Math.floor(total / 20));
+    
+    var statusMessages = [
+        '正在初始化...',
+        '正在解析薪资字段...',
+        '正在验证数据格式...',
+        '正在检查重复记录...',
+        '正在导入数据库...',
+        '正在保存数据...'
+    ];
+    
+    function processBatch() {
+        if (processed >= total) {
+            fetch('/admin/import_csv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'import', data: importData, filename: importFilename })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    showStage4(data.result);
+                }
+            });
+            return;
+        }
+        
+        processed += batchSize;
+        if (processed > total) processed = total;
+        
+        var progress = (processed / total) * 100;
+        var statusIndex = Math.min(Math.floor(progress / 20), statusMessages.length - 1);
+        
+        updateProgress(processed, total, statusMessages[statusIndex]);
+        
+        setTimeout(processBatch, 100);
+    }
+    
+    processBatch();
+}
+
+function updateProgress(processed, total, status) {
+    var percent = total > 0 ? (processed / total * 100).toFixed(1) : 0;
+    document.getElementById('progressFill').style.width = percent + '%';
+    document.getElementById('progressText').textContent = processed + '/' + total;
+    document.getElementById('progressStatus').textContent = status;
+}
+
+function showStage4(result) {
+    document.getElementById('step3').classList.remove('active');
+    document.getElementById('step3').classList.add('done');
+    document.getElementById('step3').querySelector('.step-num').innerHTML = '<i class="bi bi-check"></i>';
+    
+    document.getElementById('resultSuccess').textContent = result.success;
+    document.getElementById('resultFailed').textContent = (result.total - result.success - result.skipped);
+    document.getElementById('resultDuplicate').textContent = result.skipped;
+    
+    document.getElementById('stage3').style.display = 'none';
+    document.getElementById('stage4').style.display = 'flex';
+}
+
+function goToList() {
+    window.location.href = '{{ url_for('admin_data_manage') }}';
+}
+</script>
+{% endblock %}

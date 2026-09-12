@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+{% block title %}对比分析{% endblock %}
+{% block content %}
+<style>
+    .compare-card {
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+    .compare-card:hover {
+        border-color: #2563eb;
+    }
+    .result-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .metric-label {
+        font-weight: 500;
+        color: #6b7280;
+    }
+    .metric-value {
+        font-weight: 600;
+        font-size: 1.1em;
+    }
+    .skill-tag {
+        display: inline-block;
+        background: #eff6ff;
+        color: #2563eb;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        margin: 2px;
+    }
+    .favorite-job-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .favorite-job-card:hover {
+        border-color: #2563eb;
+        background: #f8fafc;
+    }
+    .favorite-job-card.selected {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+    .favorite-job-card.selected-a {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+    .favorite-job-card.selected-b {
+        border-color: #22c55e;
+        background: #f0fdf4;
+    }
+    @keyframes refreshFlash {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; background-color: #eff6ff; }
+    }
+    .refresh-flash {
+        animation: refreshFlash 0.5s ease-in-out;
+    }
+</style>
+<h4 class="page-title mt-3"><i class="bi bi-bar-chart me-2"></i>对比分析</h4>
+
+<!-- 岗位选择区域 -->
+<div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-heart-fill text-danger me-2"></i>从收藏中选择岗位对比</h5>
+        <button class="btn btn-outline-secondary btn-sm" onclick="loadFavoriteJobs()" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+    </div>
+    
+    <div class="row">
+        <!-- 岗位A选择 -->
+        <div class="col-md-5">
+            <div class="p-3 bg-primary bg-opacity-10 rounded">
+                <h6 class="text-primary mb-3"><i class="bi bi-1-circle me-1"></i> 选择岗位 A</h6>
+                <div id="jobListA" style="max-height: 200px; overflow-y: auto;">
+                    <p class="text-muted text-center py-4">加载中...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- VS -->
+        <div class="col-md-2 d-flex align-items-center justify-content-center">
+            <span class="display-4 text-primary font-bold">VS</span>
+        </div>
+        
+        <!-- 岗位B选择 -->
+        <div class="col-md-5">
+            <div class="p-3 bg-success bg-opacity-10 rounded">
+                <h6 class="text-success mb-3"><i class="bi bi-2-circle me-1"></i> 选择岗位 B</h6>
+                <div id="jobListB" style="max-height: 200px; overflow-y: auto;">
+                    <p class="text-muted text-center py-4">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-4">
+        <button class="btn btn-primary btn-lg" onclick="startCompare()" id="compareBtn" disabled>
+            <i class="bi bi-arrow-left-right me-2"></i>开始对比
+        </button>
+    </div>
+</div>
+
+<!-- 对比结果区域 -->
+<div id="compareResult" class="d-none">
+    <div class="row d-flex align-items-stretch">
+        <!-- 核心指标对比 -->
+        <div class="col-md-6">
+            <div class="card result-card h-100">
+                <div class="card-header bg-primary bg-opacity-10 text-primary">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>核心指标对比</h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <table class="table table-hover flex-grow-1">
+                        <thead>
+                            <tr>
+                                <th class="metric-label">指标</th>
+                                <th id="jobName1" class="text-center text-primary font-bold"></th>
+                                <th id="jobName2" class="text-center text-success font-bold"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="metric-label">公司名称</td>
+                                <td id="company1" class="text-center metric-value text-primary"></td>
+                                <td id="company2" class="text-center metric-value text-success"></td>
+                            </tr>
+                            <tr>
+                                <td class="metric-label">工作地点</td>
+                                <td id="city1" class="text-center metric-value text-primary"></td>
+                                <td id="city2" class="text-center metric-value text-success"></td>
+                            </tr>
+                            <tr>
+                                <td class="metric-label">薪资范围</td>
+                                <td id="salary1" class="text-center metric-value text-primary"></td>
+                                <td id="salary2" class="text-center metric-value text-success"></td>
+                            </tr>
+                            <tr>
+                                <td class="metric-label">学历要求</td>
+                                <td id="edu1" class="text-center metric-value text-primary"></td>
+                                <td id="edu2" class="text-center metric-value text-success"></td>
+                            </tr>
+                            <tr>
+                                <td class="metric-label">经验要求</td>
+                                <td id="exp1" class="text-center metric-value text-primary"></td>
+                                <td id="exp2" class="text-center metric-value text-success"></td>
+                            </tr>
+                            <tr>
+                                <td class="metric-label">热门技能TOP3</td>
+                                <td id="skills1" class="text-center"></td>
+                                <td id="skills2" class="text-center"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 能力要求对比 -->
+        <div class="col-md-6">
+            <div class="card result-card h-100">
+                <div class="card-header bg-info bg-opacity-10 text-info">
+                    <h5 class="mb-0"><i class="bi bi-radar me-2"></i>能力要求对比</h5>
+                </div>
+                <div class="card-body">
+                    <div id="radarChart" style="height: 320px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对比结论 -->
+    <div class="card result-card mt-4">
+        <div class="card-header bg-secondary bg-opacity-10 text-secondary">
+            <h5 class="mb-0" style="font-size: 18px;"><i class="bi bi-file-text me-2"></i>对比结论</h5>
+        </div>
+        <div class="card-body">
+            <p id="conclusion" class="mb-0" style="font-size: 16px; line-height: 1.8; color: #333;"></p>
+        </div>
+    </div>
+</div>
+
+<!-- 初始提示 -->
+<div id="initialHint" class="card p-8 text-center">
+    <i class="bi bi-heart" style="font-size: 48px; color: #9ca3af; display: block; margin-bottom: 16px;"></i>
+    <h4 class="text-muted mb-2">从收藏中选择岗位进行对比</h4>
+    <p class="text-muted">请先收藏一些岗位，然后选择两个岗位进行对比分析</p>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+<script>
+var radarChart = null;
+var selectedJobA = null;
+var selectedJobB = null;
+var favoriteJobs = [];
+
+// 加载用户收藏的岗位
+function loadFavoriteJobs() {
+    var refreshBtn = document.getElementById('refreshBtn');
+    
+    // 显示加载状态
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise fa-spin"></i> 刷新中';
+    
+    fetch('/api/user_favorites')
+    .then(r=>r.json())
+    .then(data=>{
+        favoriteJobs = data.jobs || [];
+        renderJobLists();
+        
+        // 添加刷新完成的闪烁效果
+        var jobListA = document.getElementById('jobListA');
+        var jobListB = document.getElementById('jobListB');
+        jobListA.classList.add('refresh-flash');
+        jobListB.classList.add('refresh-flash');
+        setTimeout(() => {
+            jobListA.classList.remove('refresh-flash');
+            jobListB.classList.remove('refresh-flash');
+        }, 500);
+        
+        if (favoriteJobs.length === 0) {
+            document.getElementById('initialHint').innerHTML = `
+                <i class="bi bi-heart" style="font-size: 48px; color: #9ca3af; display: block; margin-bottom: 16px;"></i>
+                <h4 class="text-muted mb-2">暂无收藏岗位</h4>
+                <p class="text-muted">请先去<a href="/user/data_browse" class="text-primary">岗位浏览</a>页面收藏一些岗位</p>
+            `;
+        }
+    })
+    .catch(err => {
+        console.error('加载收藏失败:', err);
+        document.getElementById('jobListA').innerHTML = '<p class="text-danger text-center py-4">加载失败</p>';
+        document.getElementById('jobListB').innerHTML = '<p class="text-danger text-center py-4">加载失败</p>';
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 刷新';
+    });
+}
+
+// 渲染岗位列表
+function renderJobLists() {
+    var htmlA = '';
+    var htmlB = '';
+    
+    if (favoriteJobs.length === 0) {
+        htmlA = '<p class="text-muted text-center py-4">暂无收藏岗位</p>';
+        htmlB = '<p class="text-muted text-center py-4">暂无收藏岗位</p>';
+    } else {
+        favoriteJobs.forEach(job => {
+            htmlA += `
+                <div class="favorite-job-card ${selectedJobA === job.id ? 'selected-a' : ''}" 
+                     onclick="selectJobA(${job.id}, '${job.name.replace(/'/g, "\\'")}')">
+                    <div class="d-flex justify-content-between items-center">
+                        <div>
+                            <strong class="text-dark">${job.name}</strong>
+                            <p class="text-muted text-sm mb-0">${job.company} | ${job.location}</p>
+                        </div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary">${job.salary}</span>
+                    </div>
+                </div>
+            `;
+            
+            htmlB += `
+                <div class="favorite-job-card ${selectedJobB === job.id ? 'selected-b' : ''}" 
+                     onclick="selectJobB(${job.id}, '${job.name.replace(/'/g, "\\'")}')">
+                    <div class="d-flex justify-content-between items-center">
+                        <div>
+                            <strong class="text-dark">${job.name}</strong>
+                            <p class="text-muted text-sm mb-0">${job.company} | ${job.location}</p>
+                        </div>
+                        <span class="badge bg-success bg-opacity-10 text-success">${job.salary}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    document.getElementById('jobListA').innerHTML = htmlA;
+    document.getElementById('jobListB').innerHTML = htmlB;
+}
+
+// 选择岗位A
+function selectJobA(jobId, jobName) {
+    selectedJobA = jobId;
+    renderJobLists();
+    updateCompareButton();
+}
+
+// 选择岗位B
+function selectJobB(jobId, jobName) {
+    selectedJobB = jobId;
+    renderJobLists();
+    updateCompareButton();
+}
+
+// 更新对比按钮状态
+function updateCompareButton() {
+    var btn = document.getElementById('compareBtn');
+    if (selectedJobA && selectedJobB && selectedJobA !== selectedJobB) {
+        btn.disabled = false;
+    } else {
+        btn.disabled = true;
+    }
+}
+
+// 开始对比
+function startCompare() {
+    if (!selectedJobA || !selectedJobB) {
+        alert('请选择两个岗位进行对比');
+        return;
+    }
+    
+    if (selectedJobA === selectedJobB) {
+        alert('请选择不同的岗位进行对比');
+        return;
+    }
+    
+    // 显示结果区域，隐藏提示
+    document.getElementById('initialHint').classList.add('d-none');
+    document.getElementById('compareResult').classList.remove('d-none');
+    
+    // 获取岗位名称
+    var jobA = favoriteJobs.find(j => j.id === selectedJobA);
+    var jobB = favoriteJobs.find(j => j.id === selectedJobB);
+    
+    // 更新岗位名称
+    document.getElementById('jobName1').textContent = jobA.name;
+    document.getElementById('jobName2').textContent = jobB.name;
+    
+    // 获取对比数据（使用岗位ID）
+    fetch(`/api/compare_jobs?job1=${selectedJobA}&job2=${selectedJobB}`)
+    .then(r=>r.json())
+    .then(data=>{
+        // 更新核心指标
+        document.getElementById('company1').textContent = data.job1.company || '-';
+        document.getElementById('company2').textContent = data.job2.company || '-';
+        document.getElementById('city1').textContent = data.job1.city || '-';
+        document.getElementById('city2').textContent = data.job2.city || '-';
+        document.getElementById('salary1').textContent = data.job1.salary || '-';
+        document.getElementById('salary2').textContent = data.job2.salary || '-';
+        document.getElementById('edu1').textContent = data.job1.edu || '-';
+        document.getElementById('edu2').textContent = data.job2.edu || '-';
+        document.getElementById('exp1').textContent = data.job1.experience || '-';
+        document.getElementById('exp2').textContent = data.job2.experience || '-';
+        
+        // 更新岗位技能
+        document.getElementById('skills1').innerHTML = (data.job1.skills || []).map(s => `<span class="skill-tag">${s}</span>`).join(' ');
+        document.getElementById('skills2').innerHTML = (data.job2.skills || []).map(s => `<span class="skill-tag">${s}</span>`).join(' ');
+        
+        // 更新雷达图
+        renderRadarChart(data);
+        
+        // 更新结论（处理换行）
+        document.getElementById('conclusion').innerHTML = (data.conclusion || '暂无对比结论').replace(/\n/g, '<br>');
+    })
+    .catch(err => {
+        console.error('对比失败:', err);
+        alert('对比失败，请重试');
+    });
+}
+
+function renderRadarChart(data) {
+    if (radarChart) {
+        radarChart.dispose();
+    }
+    
+    radarChart = echarts.init(document.getElementById('radarChart'));
+    
+    var option = {
+        tooltip: {
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        legend: {
+            data: [data.job1.name, data.job2.name],
+            top: 10,
+            right: 10,
+            icon: 'circle',
+            itemWidth: 14,
+            itemHeight: 14,
+            itemGap: 20,
+            textStyle: {
+                fontSize: 13,
+                fontWeight: 'bold',
+                color: '#334155'
+            }
+        },
+        radar: {
+            indicator: [
+                { name: '编程能力', max: 100 },
+                { name: '算法能力', max: 100 },
+                { name: '数据处理', max: 100 },
+                { name: '业务理解', max: 100 },
+                { name: '沟通能力', max: 100 },
+                { name: '工程能力', max: 100 }
+            ],
+            shape: 'polygon',
+            radius: '65%',
+            splitNumber: 5,
+            axisName: {
+                color: '#334155',
+                fontSize: 12,
+                fontWeight: 'bold'
+            },
+            splitLine: {
+                lineStyle: {
+                    color: '#cbd5e1',
+                    type: 'dashed'
+                }
+            },
+            splitArea: {
+                show: true,
+                areaStyle: {
+                    color: ['#f8fafc', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#94a3b8'].reverse()
+                }
+            },
+            axisLine: {
+                lineStyle: {
+                    color: '#cbd5e1'
+                }
+            }
+        },
+        series: [{
+            type: 'radar',
+            data: [
+                {
+                    value: data.job1.capabilities || [60, 60, 60, 60, 60, 60],
+                    name: data.job1.name,
+                    itemStyle: { 
+                        color: '#667eea'
+                    },
+                    lineStyle: { 
+                        color: '#667eea', 
+                        width: 3
+                    },
+                    areaStyle: { 
+                        color: new echarts.graphic.RadialGradient(0.5, 0.5, 1, [
+                            { offset: 0, color: 'rgba(102, 126, 234, 0.4)' },
+                            { offset: 1, color: 'rgba(102, 126, 234, 0.1)' }
+                        ])
+                    },
+                    symbol: 'circle',
+                    symbolSize: 10,
+                    emphasis: {
+                        itemStyle: {
+                            shadowColor: 'rgba(102, 126, 234, 0.6)',
+                            shadowBlur: 10
+                        }
+                    }
+                },
+                {
+                    value: data.job2.capabilities || [60, 60, 60, 60, 60, 60],
+                    name: data.job2.name,
+                    itemStyle: { 
+                        color: '#20e0a0'
+                    },
+                    lineStyle: { 
+                        color: '#20e0a0', 
+                        width: 3
+                    },
+                    areaStyle: { 
+                        color: new echarts.graphic.RadialGradient(0.5, 0.5, 1, [
+                            { offset: 0, color: 'rgba(32, 224, 160, 0.4)' },
+                            { offset: 1, color: 'rgba(32, 224, 160, 0.1)' }
+                        ])
+                    },
+                    symbol: 'circle',
+                    symbolSize: 10,
+                    emphasis: {
+                        itemStyle: {
+                            shadowColor: 'rgba(32, 224, 160, 0.6)',
+                            shadowBlur: 10
+                        }
+                    }
+                }
+            ],
+            animationDuration: 1200,
+            animationEasing: 'cubicOut'
+        }]
+    };
+    
+    radarChart.setOption(option);
+    
+    // 响应式
+    window.addEventListener('resize', () => {
+        radarChart && radarChart.resize();
+    });
+}
+
+// 页面加载时获取收藏列表
+loadFavoriteJobs();
+</script>
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}岗位浏览{% endblock %}
+{% block content %}
+<style>
+    .skill-tag {
+        display: inline-block;
+        background: #eff6ff;
+        color: #2563eb;
+        padding: 1px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        margin: 1px;
+    }
+    .fav-btn {
+        cursor: pointer;
+        font-size: 18px;
+        transition: all 0.15s;
+    }
+    .fav-btn:hover {
+        transform: scale(1.2);
+    }
+    .fav-btn.active {
+        color: #dc2626;
+    }
+    .demand-cell {
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .job-name-link {
+        cursor: pointer;
+        color: #2563eb;
+        text-decoration: underline;
+    }
+    .job-name-link:hover {
+        color: #1d4ed8;
+    }
+    .detail-card {
+        width: 380px;
+        flex-shrink: 0;
+        max-height: 700px;
+        overflow-y: auto;
+    }
+</style>
+<h4 class="page-title mt-3"><i class="bi bi-database me-2"></i>岗位浏览</h4>
+<div class="card p-4 mb-3">
+    <form class="d-flex flex-wrap gap-3 mb-4" method="get">
+        <div class="flex-grow-1">
+            <input type="text" name="keyword" class="form-control" style="width:280px;border-radius:10px" placeholder="搜索岗位/公司名称" value="{{ keyword }}">
+        </div>
+        <div>
+            <select name="edu" class="form-select" style="width:120px;border-radius:10px">
+                <option value="">学历不限</option>
+                {% for e in edu_options if e %}
+                <option value="{{ e }}" {% if edu == e %}selected{% endif %}>{{ e }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <select name="experience" class="form-select" style="width:140px;border-radius:10px">
+                <option value="">经验不限</option>
+                {% for exp in exp_options if exp %}
+                <option value="{{ exp }}" {% if experience == exp %}selected{% endif %}>{{ exp }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <select name="location" class="form-select" style="width:120px;border-radius:10px">
+                <option value="">城市不限</option>
+                {% for loc in locations if loc %}
+                <option value="{{ loc }}" {% if location == loc %}selected{% endif %}>{{ loc }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn btn-primary"><i class="bi bi-search"></i> 搜索</button>
+        <a href="{{ url_for('user_data_browse') }}" class="btn btn-secondary"><i class="bi bi-arrow-counterclockwise"></i> 重置</a>
+    </form>
+
+    <div id="fullTableView">
+        <div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>提示：</strong>点击爱心图标可收藏岗位，点击蓝色岗位名称可查看职位详情
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div style="overflow-x:auto">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th style="width:40px"></th><th>公司</th><th>企业性质</th><th>企业规模</th><th>岗位</th><th>城市</th><th>薪资</th><th>学历</th><th>经验</th><th>技能</th><th>文案情感</th></tr></thead>
+                <tbody>
+                {% for job in pagination.items %}
+                <tr data-job-id="{{ job.id }}">
+                    <td><i class="bi fav-btn {% if job.id in fav_ids %}bi-heart-fill active{% else %}bi-heart{% endif %}" data-id="{{ job.id }}" onclick="toggleFav(this)"></i></td>
+                    <td>{{ job.company[:14] }}{% if job.company|length > 14 %}...{% endif %}</td>
+                    <td><span class="badge bg-info bg-opacity-10 text-info">{{ job.company|classify_nature }}</span></td>
+                    <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ job.company|assign_scale }}</span></td>
+                    <td><strong class="job-name-link" onclick="showDetailView({{ job.id }})">{{ job.name }}</strong></td>
+                    <td>{{ job.location }}</td>
+                    <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ job.salary }}</span></td>
+                    <td>{{ job.edu }}</td>
+                    <td>{{ job.experience }}</td>
+                    <td>{% for s in job.skills.split()[:3] %}<span class="skill-tag">{{ s }}</span>{% endfor %}</td>
+                    <td>{% set sent = job.demand|classify_sentiment %}<span class="badge {% if sent == '积极' %}bg-success{% elif sent == '消极' %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if sent == '积极' %}text-success{% elif sent == '消极' %}text-danger{% else %}text-secondary{% endif %}">{{ sent }}</span></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if pagination.pages > 1 %}
+        <nav class="mt-3"><ul class="pagination justify-content-center mb-0">
+            {% if pagination.has_prev %}<li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}&keyword={{ keyword }}&edu={{ edu }}&experience={{ experience }}&location={{ location }}">&laquo;</a></li>{% endif %}
+            {% for p in pagination.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+                {% if p %}<li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&keyword={{ keyword }}&edu={{ edu }}&experience={{ experience }}&location={{ location }}">{{ p }}</a></li>
+                {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}<li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}&keyword={{ keyword }}&edu={{ edu }}&experience={{ experience }}&location={{ location }}">&raquo;</a></li>{% endif %}
+        </ul></nav>
+        {% endif %}
+    </div>
+
+    <div id="detailView" style="display: none;">
+        <div class="mb-3">
+            <button class="btn btn-secondary" onclick="showFullTableView()"><i class="bi bi-arrow-left"></i> 返回完整列表</button>
+        </div>
+        <div class="d-flex gap-4" style="min-height: 400px;">
+            <div class="flex-grow-1" style="overflow-x:auto;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th style="width:40px"></th><th>公司</th><th>企业性质</th><th>企业规模</th><th>岗位</th></tr></thead>
+                    <tbody>
+                    {% for job in pagination.items %}
+                    <tr data-job-id="{{ job.id }}" {% if selected_job_id == job.id %}class="table-primary"{% endif %}>
+                        <td><i class="bi fav-btn {% if job.id in fav_ids %}bi-heart-fill active{% else %}bi-heart{% endif %}" data-id="{{ job.id }}" onclick="toggleFav(this)"></i></td>
+                        <td>{{ job.company[:14] }}{% if job.company|length > 14 %}...{% endif %}</td>
+                        <td><span class="badge bg-info bg-opacity-10 text-info">{{ job.company|classify_nature }}</span></td>
+                        <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ job.company|assign_scale }}</span></td>
+                        <td><strong class="job-name-link" onclick="showDetailView({{ job.id }})">{{ job.name }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% if pagination.pages > 1 %}
+                <nav class="mt-3"><ul class="pagination justify-content-center mb-0">
+                    {% if pagination.has_prev %}<li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}&keyword={{ keyword }}&edu={{ edu }}&experience={{ experience }}&location={{ location }}">&laquo;</a></li>{% endif %}
+                    {% for p in pagination.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+                        {% if p %}<li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&keyword={{ keyword }}&edu={{ edu }}&experience={{ experience }}&location={{ location }}">{{ p }}</a></li>
+                        {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}<li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}&keyword={{ keyword }}&edu={{ edu }}&experience={{ experience }}&location={{ location }}">&raquo;</a></li>{% endif %}
+                </ul></nav>
+                {% endif %}
+            </div>
+            <div class="detail-card" id="jobDetailPanel">
+                <div class="card h-100">
+                    <div class="card-body h-full overflow-y-auto">
+                        <div class="text-center text-muted py-10">
+                            <i class="bi bi-briefcase" style="font-size:48px;display:block;margin-bottom:10px"></i>
+                            <p>点击岗位名称查看详情</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var selectedJobId = null;
+
+function toggleFav(el){
+    var id=el.dataset.id;
+    var isFav=el.classList.contains('active');
+    var url=isFav?'/user/unfavorite/'+id:'/user/favorite/'+id;
+    fetch(url,{method:'POST'}).then(r=>r.json()).then(()=>{
+        el.classList.remove('bi-heart', 'bi-heart-fill');
+        if(isFav){
+            el.classList.remove('active');
+            el.classList.add('bi-heart');
+        } else {
+            el.classList.add('bi-heart-fill', 'active');
+        }
+        updateDetailFavStatus(id);
+    });
+}
+
+function showDetailView(jobId){
+    selectedJobId = jobId;
+    document.getElementById('fullTableView').style.display = 'none';
+    document.getElementById('detailView').style.display = 'block';
+    fetch('/api/job_detail/'+jobId).then(r=>r.json()).then(job=>{
+        var panel = document.getElementById('jobDetailPanel');
+        var isFav = document.querySelector('[data-id="'+jobId+'"].active') !== null;
+        var skills = job.skills ? job.skills.split(' ').filter(s=>s).slice(0,5) : [];
+        var demands = job.demand ? job.demand.split('。').filter(d=>d.trim()).slice(0,3) : [];
+        var welfare = ['五险一金', '年终奖', '股票期权'];
+        panel.innerHTML = `
+            <div class="card h-full">
+                <div class="card-body h-full overflow-y-auto">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between items-center">
+                            <span class="badge bg-primary bg-opacity-10 text-primary">${job.salary}</span>
+                            <span class="text-muted text-sm">职位详情</span>
+                        </div>
+                        <h4 class="mt-2">${job.name}</h4>
+                        <p class="text-muted text-sm mt-1">${job.company}</p>
+                        <p class="text-muted text-sm">${job.location} | ${job.experience} | ${job.edu}</p>
+                    </div>
+                    <div class="mb-3">
+                        ${welfare.map(w=>`<span class="badge bg-info bg-opacity-10 text-info me-1">${w}</span>`).join('')}
+                    </div>
+                    <div class="mb-3">
+                        <h5 class="text-sm font-semibold">职位描述</h5>
+                        <ul class="text-sm text-muted mt-2">
+                            ${demands.map((d,i)=>`<li class="py-1">${i+1}. ${d}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="mb-4">
+                        <h5 class="text-sm font-semibold">技能要求</h5>
+                        <div class="mt-2">
+                            ${skills.map(s=>`<span class="skill-tag">${s}</span>`).join('')}
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-full" id="detailFavBtn" onclick="toggleDetailFav(${job.id})">
+                        <i class="bi ${isFav ? 'bi-heart-fill' : 'bi-heart'}"></i> ${isFav ? '已收藏' : '加入收藏'}
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    var rows = document.querySelectorAll('#detailView table tbody tr');
+    rows.forEach(row => row.classList.remove('table-primary'));
+    document.querySelector('#detailView table tbody tr[data-job-id="'+jobId+'"]')?.classList.add('table-primary');
+}
+
+function showFullTableView(){
+    selectedJobId = null;
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('fullTableView').style.display = 'block';
+}
+
+function toggleDetailFav(jobId){
+    var btn = document.getElementById('detailFavBtn');
+    var isFav = btn.querySelector('.bi-heart-fill') !== null;
+    var url = isFav ? '/user/unfavorite/'+jobId : '/user/favorite/'+jobId;
+    fetch(url,{method:'POST'}).then(r=>r.json()).then(()=>{
+        document.querySelectorAll('[data-id="'+jobId+'"]').forEach(el => {
+            el.classList.remove('bi-heart', 'bi-heart-fill');
+            if(isFav){
+                el.classList.remove('active');
+                el.classList.add('bi-heart');
+            } else {
+                el.classList.add('bi-heart-fill', 'active');
+            }
+        });
+        if(isFav){
+            btn.innerHTML = '<i class="bi bi-heart"></i> 加入收藏';
+        }else{
+            btn.innerHTML = '<i class="bi bi-heart-fill"></i> 已收藏';
+        }
+    });
+}
+
+function updateDetailFavStatus(jobId){
+    var btn = document.getElementById('detailFavBtn');
+    if(btn){
+        var isFav = document.querySelector('[data-id="'+jobId+'"].active') !== null;
+        btn.innerHTML = '<i class="bi '+ (isFav ? 'bi-heart-fill' : 'bi-heart') +'"></i> ' + (isFav ? '已收藏' : '加入收藏');
+    }
+}
+</script>
+{% endblock %}

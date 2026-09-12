@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}首页概览{% endblock %}
+{% block content %}
+<style>
+    .stat-icon-box{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px}
+    .stat-icon-box.blue{background:#eff6ff;color:#2563eb}
+    .stat-icon-box.green{background:#f0fdf4;color:#16a34a}
+    .stat-icon-box.orange{background:#fff7ed;color:#ea580c}
+    .stat-icon-box.red{background:#fef2f2;color:#dc2626}
+    #mapChart{height:520px}
+</style>
+<h4 class="page-title mt-3"><i class="bi bi-house me-2"></i>首页概览</h4>
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card stat-card"><div class="d-flex align-items-center justify-content-center gap-3"><div class="stat-icon-box blue"><i class="bi bi-file-earmark-text"></i></div><div><div class="stat-val" id="sTotal">-</div><div class="stat-label">岗位总量</div></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card"><div class="d-flex align-items-center justify-content-center gap-3"><div class="stat-icon-box green"><i class="bi bi-building"></i></div><div><div class="stat-val" id="sCompany">-</div><div class="stat-label">企业数量</div></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card"><div class="d-flex align-items-center justify-content-center gap-3"><div class="stat-icon-box orange"><i class="bi bi-geo-alt"></i></div><div><div class="stat-val" id="sTopCity">-</div><div class="stat-label">优势城市</div></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card"><div class="d-flex align-items-center justify-content-center gap-3"><div class="stat-icon-box red"><i class="bi bi-currency-yen"></i></div><div><div class="stat-val" id="sAvgSal">-</div><div class="stat-label">平均薪资(K)</div></div></div></div></div>
+</div>
+
+<!-- 系统智能分析结论 -->
+<div class="card mb-4">
+    <div class="card-header bg-gradient-to-r from-blue-50 to-indigo-50 border-0 px-4 py-3">
+        <h5 class="font-weight-bold text-gray-800"><i class="bi bi-lightbulb-fill text-blue-500 me-2"></i>系统智能分析结论（基于数据集整体分析）</h5>
+    </div>
+    <div class="card-body px-4">
+        <ul class="conclusion-list" id="conclusionList" style="list-style-type: disc; padding-left: 20px;">
+            <li class="text-gray-400 py-2">正在分析数据...</li>
+        </ul>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-7"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-map me-1"></i>全国岗位分布</div><div id="mapChart"></div></div></div>
+    <div class="col-lg-5">
+        <div class="card p-3 mb-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-bar-chart me-1"></i>岗位类型分布</div><div id="pieChart" style="height:250px"></div></div>
+        <div class="card p-3" style="height:258px"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-trophy me-1"></i>薪资概况</div>
+            <div class="px-3 pb-2" style="display:flex;flex-direction:column;justify-content:space-between;height:calc(100% - 40px)">
+                <div class="d-flex justify-content-between py-2 border-bottom"><span class="text-muted">最高薪资</span><span class="fw-bold" id="sMaxSal">-</span></div>
+                <div class="d-flex justify-content-between py-2 border-bottom"><span class="text-muted">最低薪资</span><span class="fw-bold" id="sMinSal">-</span></div>
+                <div class="d-flex justify-content-between py-2"><span class="text-muted">平均薪资</span><span class="fw-bold" id="sAvgSal2">-</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/china.js') }}"></script>
+<script>
+fetch('/api/dashboard_stats')
+.then(r => {
+    if (!r.ok) throw new Error('网络请求失败');
+    return r.json();
+})
+.then(d => {
+    document.getElementById('sTotal').textContent=d.total;
+    document.getElementById('sCompany').textContent=d.company_count;
+    document.getElementById('sTopCity').textContent=d.top_city;
+    document.getElementById('sAvgSal').textContent=d.avg_salary;
+    document.getElementById('sMaxSal').textContent=d.max_salary+'K/月';
+    document.getElementById('sMinSal').textContent='2K/月';
+    document.getElementById('sAvgSal2').textContent=d.avg_salary+'K/月';
+    
+    // 显示智能分析结论
+    const conclusionList = document.getElementById('conclusionList');
+    conclusionList.innerHTML = '';
+    conclusionList.style.listStyle = 'none';
+    conclusionList.style.paddingLeft = '0';
+    if (d.conclusions && d.conclusions.length > 0) {
+        d.conclusions.forEach((conclusion) => {
+            const li = document.createElement('li');
+            li.className = 'py-3 px-4 mb-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500';
+            // 解析简单的markdown格式
+            let text = conclusion.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            li.innerHTML = text;
+            conclusionList.appendChild(li);
+        });
+    } else {
+        const li = document.createElement('li');
+        li.className = 'text-gray-400 py-2';
+        li.textContent = '暂无分析数据';
+        conclusionList.appendChild(li);
+    }
+})
+.catch(err => {
+    console.error('加载首页概览失败:', err);
+    document.getElementById('conclusionList').innerHTML = '<li class="text-red-500 py-2">加载失败，请刷新页面重试</li>';
+});
+fetch('/api/map_data').then(r=>r.json()).then(data=>{
+    var c=echarts.init(document.getElementById('mapChart'));
+    c.setOption({tooltip:{trigger:'item',formatter:'{b}<br/>岗位数: {c}'},visualMap:{min:0,max:Math.max(...data.map(i=>i.value),1),inRange:{color:['#e0f2fe','#7dd3fc','#38bdf8','#0284c7','#0369a1']},text:['多','少'],calculable:true,left:16,bottom:16},series:[{type:'map',map:'china',roam:true,label:{show:false},emphasis:{label:{show:true,color:'#222',fontWeight:600}},itemStyle:{areaColor:'#f1f5f9',borderColor:'#cbd5e1'},data:data}]});
+    window.addEventListener('resize',()=>c.resize());
+});
+fetch('/api/job_type_stats').then(r=>r.json()).then(data=>{
+    var c=echarts.init(document.getElementById('pieChart'));
+    c.setOption({
+        tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+        color:['#2563eb','#16a34a','#ea580c','#8b5cf6','#ec4899','#0891b2','#d97706','#64748b'],
+        legend:{
+            orient:'vertical',
+            right:'5%',
+            top:'center',
+            textStyle:{fontSize:12,color:'#333'}
+        },
+        series:[{
+            type:'pie',
+            radius:['40%','72%'],
+            center:['40%','55%'],
+            itemStyle:{borderRadius:6,borderColor:'#fff',borderWidth:2},
+            label:{
+                show:true,
+                fontSize:12,
+                color:'#222',
+                formatter:'{b}\n{d}%'
+            },
+            labelLine:{show:true},
+            data:data
+        }]
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+</script>
+{% endblock %}

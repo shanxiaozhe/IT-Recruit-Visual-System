@@ -1,0 +1,716 @@
+{% extends 'base.html' %}
+{% block title %}就业建议{% endblock %}
+{% block content %}
+<style>
+    .card-header-custom {
+        border-radius: 12px 12px 0 0;
+        padding: 20px 24px;
+    }
+    .card-body-custom {
+        padding: 24px;
+    }
+    .skill-tag {
+        display: inline-block;
+        padding: 6px 14px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1e40af;
+        border-radius: 20px;
+        font-size: 15px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    .job-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        transition: all 0.2s ease;
+    }
+    .job-item:hover {
+        background: #f1f5f9;
+        transform: translateX(4px);
+    }
+    .job-rank {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 28px;
+        margin-right: 14px;
+    }
+    .job-info {
+        flex: 1;
+    }
+    .job-name {
+        font-weight: 700;
+        color: #1a1a1a;
+        font-size: 16px;
+    }
+    .job-salary {
+        font-size: 14px;
+        color: #4a4a4a;
+        margin-top: 4px;
+    }
+    .fav-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .fav-btn:hover {
+        background: #fef2f2;
+        transform: scale(1.1);
+    }
+    .fav-btn .bi-heart {
+        color: #9ca3af;
+        font-size: 18px;
+    }
+    .fav-btn .bi-heart-fill {
+        color: #ef4444;
+        font-size: 18px;
+    }
+    .advice-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 10px;
+        margin-bottom: 16px;
+    }
+    .advice-icon {
+        font-size: 24px;
+        color: #1e40af;
+        margin-right: 12px;
+    }
+    .advice-title {
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 10px;
+        font-size: 17px;
+    }
+    .advice-content {
+        font-size: 16px;
+        color: #3a3a3a;
+        line-height: 1.8;
+        font-weight: 400;
+    }
+    .competitiveness-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-radius: 12px;
+        padding: 16px;
+    }
+    /* 学习路径时间线样式 */
+    .learning-path {
+        position: relative;
+        padding-left: 30px;
+    }
+    .learning-path::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3b82f6 0%, #10b981 100%);
+        border-radius: 2px;
+    }
+    .path-stage {
+        position: relative;
+        margin-bottom: 20px;
+        padding: 14px 16px;
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .path-stage::before {
+        content: '';
+        position: absolute;
+        left: -24px;
+        top: 18px;
+        width: 14px;
+        height: 14px;
+        background: #3b82f6;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #3b82f6;
+    }
+    .path-stage.active::before {
+        background: #10b981;
+        box-shadow: 0 0 0 2px #10b981;
+    }
+    .path-stage-name {
+        font-weight: 700;
+        color: #1a1a1a;
+        font-size: 17px;
+        margin-bottom: 6px;
+    }
+    .path-stage-duration {
+        font-size: 15px;
+        color: #3a3a3a;
+        margin-bottom: 10px;
+        font-weight: 500;
+    }
+    .path-stage-skills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .path-skill-tag {
+        display: inline-block;
+        padding: 5px 14px;
+        background: #e8e8e8;
+        color: #2a2a2a;
+        border-radius: 14px;
+        font-size: 15px;
+        font-weight: 500;
+    }
+    .path-advice {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed #cccccc;
+        font-size: 15px;
+        color: #3a3a3a;
+        line-height: 1.6;
+    }
+    .certificate-tag {
+        display: inline-block;
+        padding: 6px 16px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #78350f;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        margin-right: 10px;
+        margin-bottom: 10px;
+    }
+    /* 图表容器样式 */
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+        border: 1px solid #e2e8f0;
+    }
+    .chart-title {
+        font-weight: 700;
+        color: #1a1a1a;
+        font-size: 19px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .chart-title i {
+        color: #3b82f6;
+    }
+    /* 分区标签页样式 */
+    .result-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+    .result-tab {
+        padding: 12px 22px;
+        border-radius: 10px;
+        background: #e8e8e8;
+        color: #3a3a3a;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+    }
+    .result-tab:hover {
+        background: #d8d8d8;
+    }
+    .result-tab.active {
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        color: white;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    /* 竞争力仪表盘样式 */
+    .gauge-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+    .gauge-wrapper {
+        position: relative;
+        width: 180px;
+        height: 180px;
+    }
+    .gauge-bg {
+        fill: none;
+        stroke: #e2e8f0;
+        stroke-width: 20;
+    }
+    .gauge-fill {
+        fill: none;
+        stroke-width: 20;
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: center;
+    }
+    .gauge-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+    .gauge-value {
+        font-size: 42px;
+        font-weight: 700;
+        color: #1a1a1a;
+    }
+    .gauge-label {
+        font-size: 14px;
+        color: #4a4a4a;
+    }
+    /* 分项得分样式 */
+    .score-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .score-item:last-child {
+        border-bottom: none;
+    }
+    .score-label {
+        font-size: 15px;
+        color: #3a3a3a;
+        font-weight: 500;
+    }
+    .score-bar {
+        width: 140px;
+        height: 10px;
+        background: #d0d0d0;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    .score-bar-fill {
+        height: 100%;
+        border-radius: 5px;
+        transition: width 0.5s ease;
+    }
+    .score-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1a1a1a;
+        min-width: 35px;
+        text-align: right;
+    }
+</style>
+<h4 class="page-title mt-3"><i class="bi bi-lightbulb me-2"></i>就业建议</h4>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm" style="border-radius:16px;overflow:hidden">
+            <div class="card-header-custom bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                <h5 class="mb-0"><i class="bi bi-search me-2"></i>就业建议</h5>
+            </div>
+            <div class="card-body-custom">
+                <h5 class="mb-4" style="font-weight:600;color:#374151"><i class="bi bi-search me-2"></i>请输入个人信息</h5>
+                <div class="mb-4">
+                    <label class="form-label" style="font-weight:500;color:#374151">您的学历</label>
+                    <select class="form-select" id="userEdu" style="border-radius:10px;height:44px;border-color:#e5e7eb">
+                        <option value="">请选择</option>
+                        <option value="大专">大专</option>
+                        <option value="本科">本科</option>
+                        <option value="硕士">硕士</option>
+                        <option value="博士">博士</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" style="font-weight:500;color:#374151">您的工作经验</label>
+                    <select class="form-select" id="userExp" style="border-radius:10px;height:44px;border-color:#e5e7eb">
+                        <option value="">请选择</option>
+                        <option value="应届生">应届生</option>
+                        <option value="1-3年">1-3年</option>
+                        <option value="3-5年">3-5年</option>
+                        <option value="5-10年">5-10年</option>
+                        <option value="10年以上">10年以上</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" style="font-weight:500;color:#374151">目标岗位类型</label>
+                    <select class="form-select" id="userJobType" style="border-radius:10px;height:44px;border-color:#e5e7eb">
+                        <option value="">请选择</option>
+                        <option value="开发">开发类</option>
+                        <option value="测试">测试类</option>
+                        <option value="运维">运维类</option>
+                        <option value="数据">数据类</option>
+                        <option value="算法">算法类</option>
+                        <option value="网络安全">网络安全类</option>
+                        <option value="项目产品">项目产品类</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary w-100" onclick="getAdvice()" style="border-radius:12px;height:50px;font-size:16px;font-weight:600;box-shadow:0 4px 14px rgba(37,99,235,0.35)"><i class="bi bi-lightning me-2"></i>生成智能建议</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm" style="border-radius:16px;overflow:hidden">
+            <div class="card-header-custom bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+                <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>AI 分析结果</h5>
+            </div>
+            <div class="card-body-custom" id="adviceResult">
+                <div class="text-center py-12">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-teal-100 mb-4">
+                        <i class="bi bi-robot" style="font-size:40px;color:#2563eb"></i>
+                    </div>
+                    <p class="text-gray-500 mb-2">请填写个人信息</p>
+                    <p class="text-gray-400 text-sm">点击"生成智能建议"获取个性化职业方案</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script>
+var radarChart = null;
+
+function getAdvice(){
+    var edu = document.getElementById('userEdu').value;
+    var exp = document.getElementById('userExp').value;
+    var jobType = document.getElementById('userJobType').value;
+
+    if(!edu || !exp){
+        alert('请填写学历和工作经验');
+        return;
+    }
+
+    fetch('/api/career_advice?edu='+encodeURIComponent(edu)+'&exp='+encodeURIComponent(exp)+'&job_type='+encodeURIComponent(jobType||''))
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        console.log('API返回数据:', data);
+        renderAdviceResult(data);
+    })
+    .catch(function(error){
+        console.error('请求失败:', error);
+        alert('请求失败，请检查网络连接');
+    });
+}
+
+function renderAdviceResult(data) {
+    var jobsHtml = '';
+    var favIds = data.fav_ids || [];
+    for(var i=0; i<data.jobs.length; i++){
+        var job = data.jobs[i];
+        var isFav = favIds.indexOf(job.id) >= 0;
+        var heartClass = isFav ? 'bi-heart-fill' : 'bi-heart';
+        jobsHtml += '<div class="job-item" data-job-id="'+job.id+'" data-job-name="'+job.name+'">'+
+            '<div style="display:flex;align-items:center">'+
+            '<div class="job-rank">'+(i+1)+'</div>'+
+            '<div class="job-info">'+
+            '<div class="job-name">'+job.name+'</div>'+
+            '<div class="job-salary">平均薪资 '+job.salary+'</div>'+
+            '</div></div>'+
+            '<button class="fav-btn" onclick="toggleFav(this, '+job.id+', \''+job.name+'\')" data-job-id="'+job.id+'">'+
+            '<i class="bi '+heartClass+'"></i>'+
+            '</button></div>';
+    }
+
+    var skillsHtml = '';
+    for(var i=0; i<data.skills.length; i++){
+        skillsHtml += '<span class="skill-tag">'+data.skills[i]+'</span>';
+    }
+
+    // 生成学习路径HTML
+    var learningPathHtml = '';
+    var learningPath = data.learning_path || {stages: [], certificates: []};
+    for(var i=0; i<learningPath.stages.length; i++){
+        var stage = learningPath.stages[i];
+        var isActive = i === 0 ? 'active' : '';
+        var stageSkills = '';
+        for(var j=0; j<stage.skills.length; j++){
+            stageSkills += '<span class="path-skill-tag">'+stage.skills[j]+'</span>';
+        }
+        learningPathHtml += '<div class="path-stage '+isActive+'">'+
+            '<div class="path-stage-name">'+stage.name+'</div>'+
+            '<div class="path-stage-duration"><i class="bi bi-clock me-1"></i>'+stage.duration+'</div>'+
+            '<div class="path-stage-skills">'+stageSkills+'</div>'+
+            '<div class="path-advice"><i class="bi bi-lightbulb me-1"></i>'+stage.advice+'</div>'+
+            '</div>';
+    }
+    var certHtml = '';
+    for(var i=0; i<learningPath.certificates.length; i++){
+        certHtml += '<span class="certificate-tag"><i class="bi bi-award me-1"></i>'+learningPath.certificates[i]+'</span>';
+    }
+
+    // 生成竞争力详情HTML
+    var detail = data.competitiveness_detail || {edu_score: 2, exp_score: 1};
+    var competitivenessScore = data.competitiveness || 3;
+    var gaugeColor = competitivenessScore <= 2 ? '#ef4444' : (competitivenessScore <= 3 ? '#f59e0b' : '#10b981');
+    var gaugePercent = (competitivenessScore / 5) * 100;
+
+    var competitivenessHtml =
+        '<div class="row">'+
+        '<div class="col-md-5">'+
+        '<div class="gauge-container">'+
+        '<div class="gauge-wrapper">'+
+        '<svg width="180" height="180" viewBox="0 0 180 180">'+
+        '<circle class="gauge-bg" cx="90" cy="90" r="70"/>'+
+        '<circle class="gauge-fill" cx="90" cy="90" r="70" stroke="'+gaugeColor+'" stroke-dasharray="'+(2*Math.PI*70*gaugePercent/100)+' '+(2*Math.PI*70)+'"/>'+
+        '</svg>'+
+        '<div class="gauge-text">'+
+        '<div class="gauge-value">'+competitivenessScore+'</div>'+
+        '<div class="gauge-label">竞争力评分</div>'+
+        '</div>'+
+        '</div>'+
+        '</div>'+
+        '</div>'+
+        '<div class="col-md-7">'+
+        '<div class="score-item"><span class="score-label">学历得分</span><div class="score-bar"><div class="score-bar-fill" style="width:'+(detail.edu_score/5*100)+'%;background:#3b82f6"></div></div><span class="score-value">'+detail.edu_score+'/5</span></div>'+
+        '<div class="score-item"><span class="score-label">经验得分</span><div class="score-bar"><div class="score-bar-fill" style="width:'+(detail.exp_score/5*100)+'%;background:#10b981"></div></div><span class="score-value">'+detail.exp_score+'/5</span></div>'+
+        '<div class="score-item"><span class="score-label">综合评分</span><div class="score-bar"><div class="score-bar-fill" style="width:'+(competitivenessScore/5*100)+'%;background:'+gaugeColor+'"></div></div><span class="score-value">'+competitivenessScore+'/5</span></div>'+
+        '<p class="mt-3 mb-0" style="font-size:13px;color:#64748b"><i class="bi bi-info-circle me-1"></i>'+data.competitiveness_text+'</p>'+
+        '</div>'+
+        '</div>';
+
+    // 标签页内容HTML
+    var tabsHtml =
+        '<div class="result-tabs">'+
+        '<button class="result-tab active" onclick="switchTab(this, \'tab-recommend\')"><i class="bi bi-briefcase me-1"></i>推荐岗位</button>'+
+        '<button class="result-tab" onclick="switchTab(this, \'tab-learning\')"><i class="bi bi-map me-1"></i>学习路径</button>'+
+        '<button class="result-tab" onclick="switchTab(this, \'tab-skills\')"><i class="bi bi-bar-chart me-1"></i>技能雷达</button>'+
+        '</div>'+
+
+        '<div id="tab-recommend" class="tab-content active">'+
+        '<div class="mb-4"><h6 class="font-weight-bold mb-3" style="color:#1e293b;font-size:15px"><i class="bi bi-briefcase me-2" style="color:#2563eb"></i>推荐岗位</h6>'+
+        jobsHtml+'</div>'+
+        '<div class="advice-section">'+
+        '<div class="advice-title"><i class="bi bi-wrench advice-icon"></i>技能提升建议</div>'+
+        '<div class="advice-content">'+data.skill_advice+'</div>'+
+        '<div class="mt-3">'+skillsHtml+'</div></div>'+
+        '</div>'+
+
+        '<div id="tab-learning" class="tab-content">'+
+        '<h6 class="font-weight-bold mb-3" style="color:#1e293b;font-size:15px"><i class="bi bi-map me-2" style="color:#10b981"></i>学习路径规划</h6>'+
+        '<div class="learning-path">'+learningPathHtml+'</div>'+
+        '<div class="mt-4">'+
+        '<h6 class="font-weight-bold mb-2" style="color:#1e293b;font-size:14px"><i class="bi bi-award me-2" style="color:#f59e0b"></i>推荐考取证书</h6>'+
+        certHtml+
+        '</div>'+
+        '</div>'+
+
+        '<div id="tab-skills" class="tab-content">'+
+        '<div class="chart-container">'+
+        '<div class="chart-title"><i class="bi bi-pie-chart"></i>市场高频技能雷达</div>'+
+        '<div id="radarChart" style="width:100%;height:320px;"></div>'+
+        '</div>'+
+        '</div>';
+
+    document.getElementById('adviceResult').innerHTML = tabsHtml;
+
+    // 渲染图表 - 等待DOM完全渲染
+    setTimeout(function(){
+        renderRadarChart(data.skill_names, data.skill_radar, data.job_type);
+    }, 300);
+}
+
+function switchTab(btn, tabId) {
+    document.querySelectorAll('.result-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c){ c.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+
+    // 等待DOM渲染完成后调整图表大小
+    setTimeout(function(){
+        if(radarChart) radarChart.resize();
+    }, 100);
+}
+
+function renderRadarChart(skillNames, skillValues, jobType) {
+    var chartDom = document.getElementById('radarChart');
+    if(!chartDom) {
+        console.log('雷达图DOM不存在');
+        return;
+    }
+
+    // 如果图表已存在，先销毁再重新创建
+    if(radarChart) {
+        radarChart.dispose();
+        radarChart = null;
+    }
+
+    try {
+        radarChart = echarts.init(chartDom);
+    } catch(e) {
+        console.log('ECharts初始化失败:', e);
+        return;
+    }
+
+    // 不同岗位类型对应的技能需求数据
+    var jobSkillsMap = {
+        '开发': [
+            { name: 'Python', value: 82 },
+            { name: 'Java', value: 78 },
+            { name: 'MySQL', value: 75 },
+            { name: 'Linux', value: 65 },
+            { name: 'Git', value: 60 }
+        ],
+        '测试': [
+            { name: 'Python', value: 68 },
+            { name: 'Java', value: 55 },
+            { name: 'MySQL', value: 62 },
+            { name: 'Selenium', value: 58 },
+            { name: 'Postman', value: 45 }
+        ],
+        '运维': [
+            { name: 'Linux', value: 88 },
+            { name: 'Shell', value: 75 },
+            { name: 'Docker', value: 70 },
+            { name: 'Kubernetes', value: 60 },
+            { name: 'MySQL', value: 55 }
+        ],
+        '数据': [
+            { name: 'Python', value: 90 },
+            { name: 'SQL', value: 85 },
+            { name: 'Spark', value: 72 },
+            { name: 'Hadoop', value: 65 },
+            { name: 'Tableau', value: 50 }
+        ],
+        '算法': [
+            { name: 'Python', value: 92 },
+            { name: 'C++', value: 70 },
+            { name: 'PyTorch', value: 75 },
+            { name: 'TensorFlow', value: 72 },
+            { name: 'SQL', value: 60 }
+        ],
+        '网络安全': [
+            { name: 'Linux', value: 85 },
+            { name: 'Python', value: 70 },
+            { name: 'C/C++', value: 65 },
+            { name: 'Wireshark', value: 60 },
+            { name: 'Metasploit', value: 55 }
+        ],
+        '项目产品': [
+            { name: 'SQL', value: 70 },
+            { name: 'Axure', value: 75 },
+            { name: 'Excel', value: 80 },
+            { name: 'Jira', value: 65 },
+            { name: 'PPT', value: 60 }
+        ]
+    };
+
+    // 获取当前岗位类型的技能数据，默认为开发类
+    var marketSkills = jobSkillsMap[jobType] || jobSkillsMap['开发'];
+
+    // 生成带百分比的技能名称
+    var skillNamesWithPercent = marketSkills.map(function(item){
+        return item.name + ' (' + item.value + '%)';
+    });
+
+    var option = {
+        tooltip: {
+            trigger: 'item',
+            formatter: function(params) {
+                return params.name + ': ' + params.value + '%';
+            }
+        },
+        legend: {
+            data: ['市场需求度'],
+            bottom: 15,
+            textStyle: { color: '#1a1a1a', fontSize: 15, fontWeight: 600 }
+        },
+        radar: {
+            indicator: marketSkills.map(function(item){
+                return { name: item.name + ' (' + item.value + '%)', max: 100 };
+            }),
+            radius: '65%',
+            axisName: {
+                color: '#1a1a1a',
+                fontSize: 16,
+                fontWeight: 700
+            },
+            splitArea: {
+                areaStyle: {
+                    color: ['#f8fafc', '#f1f5f9']
+                }
+            },
+            axisLine: {
+                lineStyle: { color: '#e2e8f0' }
+            },
+            splitLine: {
+                lineStyle: { color: '#e2e8f0' }
+            }
+        },
+        series: [{
+            type: 'radar',
+            data: [{
+                value: marketSkills.map(function(item){ return item.value; }),
+                name: '市场需求度',
+                areaStyle: {
+                    color: 'rgba(59, 130, 246, 0.3)'
+                },
+                lineStyle: {
+                    color: '#3b82f6',
+                    width: 2
+                },
+                itemStyle: {
+                    color: '#3b82f6'
+                }
+            }]
+        }]
+    };
+
+    radarChart.setOption(option);
+}
+
+function toggleFav(btn, jobId, jobName){
+    var icon = btn.querySelector('i');
+    var isFav = icon.classList.contains('bi-heart-fill');
+
+    var url = isFav ? '/user/unfavorite/'+jobId : '/user/favorite/'+jobId;
+    fetch(url, {method: 'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(){
+        if(isFav){
+            icon.classList.remove('bi-heart-fill');
+            icon.classList.add('bi-heart');
+            alert('已取消收藏「'+jobName+'」');
+        } else {
+            icon.classList.remove('bi-heart');
+            icon.classList.add('bi-heart-fill');
+            alert('已收藏「'+jobName+'」，可在个人中心查看');
+        }
+    })
+    .catch(function(error){
+        console.error('收藏失败:', error);
+        alert('收藏失败，请重试');
+    });
+}
+
+// 页面加载时初始化图表大小
+window.addEventListener('resize', function(){
+    if(radarChart) radarChart.resize();
+});
+</script>
+{% endblock %}

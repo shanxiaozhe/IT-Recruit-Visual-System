@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}操作日志 - 管理员{% endblock %}
+{% block content %}
+<style>
+    .modal .form-control{border-radius:10px;border:1px solid #c1c1c1}
+    .modal .modal-content{border-radius:20px;border:none;box-shadow:rgba(0,0,0,0.1) 0 8px 24px}
+    .filter-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:12px}
+    .table-wrap{overflow-x:auto}
+</style>
+<h4 class="page-title"><i class="bi bi-file-text me-2"></i>操作日志</h4>
+<div class="card p-4">
+    <form class="filter-bar" method="get">
+        <select name="log_type" class="form-select" style="width:160px;border-radius:10px">
+            <option value="">日志类型: 全部</option>
+            <option value="数据导入" {% if log_type == '数据导入' %}selected{% endif %}>数据导入</option>
+            <option value="新增岗位" {% if log_type == '新增岗位' %}selected{% endif %}>新增岗位</option>
+            <option value="编辑岗位" {% if log_type == '编辑岗位' %}selected{% endif %}>编辑岗位</option>
+            <option value="删除岗位" {% if log_type == '删除岗位' %}selected{% endif %}>删除岗位</option>
+            <option value="用户登录" {% if log_type == '用户登录' %}selected{% endif %}>用户登录</option>
+            <option value="用户注册" {% if log_type == '用户注册' %}selected{% endif %}>用户注册</option>
+            <option value="编辑用户" {% if log_type == '编辑用户' %}selected{% endif %}>编辑用户</option>
+            <option value="删除用户" {% if log_type == '删除用户' %}selected{% endif %}>删除用户</option>
+            <option value="修改密码" {% if log_type == '修改密码' %}selected{% endif %}>修改密码</option>
+        </select>
+        <span>时间范围:</span>
+        <input type="date" name="start_date" class="form-control" style="width:150px;border-radius:10px" value="{{ start_date }}">
+        <span>~</span>
+        <input type="date" name="end_date" class="form-control" style="width:150px;border-radius:10px" value="{{ end_date }}">
+        <button type="submit" class="btn btn-primary" style="border-radius:10px"><i class="bi bi-search"></i> 查询</button>
+        <button type="button" class="btn btn-outline-secondary" style="border-radius:10px" onclick="resetFilter()"><i class="bi bi-arrow-counterclockwise"></i> 重置</button>
+    </form>
+    
+    <div class="table-wrap">
+    <table class="table table-hover align-middle mb-0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>日志类型</th>
+                <th>操作用户</th>
+                <th>操作内容</th>
+                <th>操作时间</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for log in pagination.items %}
+        <tr>
+            <td>{{ log.id }}</td>
+            <td>
+                {% if log.log_type in ['数据导入', '新增岗位', '编辑岗位'] %}
+                <span class="badge" style="background-color:#bfdbfe;color:#1e40af">{{ log.log_type }}</span>
+                {% elif log.log_type in ['删除岗位', '删除用户'] %}
+                <span class="badge" style="background-color:#fecaca;color:#991b1b">{{ log.log_type }}</span>
+                {% elif log.log_type in ['用户登录', '用户注册'] %}
+                <span class="badge" style="background-color:#bbf7d0;color:#166534">{{ log.log_type }}</span>
+                {% else %}
+                <span class="badge" style="background-color:#e5e7eb;color:#374151">{{ log.log_type }}</span>
+                {% endif %}
+            </td>
+            <td><i class="bi bi-person-circle me-1"></i>{{ log.username }}</td>
+            <td>{{ log.content }}</td>
+            <td class="text-muted" style="font-size:13px">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}</td>
+        </tr>
+        {% endfor %}
+        {% if pagination.items|length == 0 %}
+        <tr><td colspan="5" class="text-center text-muted py-8">暂无日志记录</td></tr>
+        {% endif %}
+        </tbody>
+    </table>
+    </div>
+    
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-between mt-3 align-items-center">
+        <span class="text-muted" style="font-size:13px">共 {{ pagination.total }} 条</span>
+        <nav><ul class="pagination mb-0">
+            {% if pagination.has_prev %}<li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}&log_type={{ log_type }}&start_date={{ start_date }}&end_date={{ end_date }}">&laquo;</a></li>{% endif %}
+            {% for p in pagination.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+                {% if p %}<li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&log_type={{ log_type }}&start_date={{ start_date }}&end_date={{ end_date }}">{{ p }}</a></li>
+                {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}<li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}&log_type={{ log_type }}&start_date={{ start_date }}&end_date={{ end_date }}">&raquo;</a></li>{% endif %}
+        </ul></nav>
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:13px">{{ pagination.per_page }}条/页</span>
+        </div>
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-between mt-3 align-items-center">
+        <span class="text-muted" style="font-size:13px">共 {{ pagination.total }} 条</span>
+        <div></div>
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:13px">10条/页</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function resetFilter() {
+    window.location.href = '{{ url_for('admin_log_manage') }}';
+}
+</script>
+{% endblock %}

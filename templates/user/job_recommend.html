@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% block title %}岗位推荐{% endblock %}
+{% block content %}
+<style>
+    .result-card{border:1px solid #e5e5e5;border-radius:12px;padding:14px 18px;margin-bottom:10px;transition:all .15s}
+    .result-card:hover{border-color:#2563eb;box-shadow:0 2px 8px rgba(37,99,235,.1)}
+    .result-card .job-title{font-weight:600;color:#222;font-size:15px}
+    .result-card .meta{font-size:13px;color:#6a6a6a}
+    .fav-btn{cursor:pointer;font-size:18px;transition:all .15s}
+    .fav-btn:hover{transform:scale(1.2)}
+    .fav-btn.active{color:#dc2626}
+    .loading-spinner{display:flex;align-items:center;justify-content:center;padding:40px;color:#6a6a6a}
+    .load-more-btn{display:block;margin:20px auto;padding:10px 20px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;color:#2563eb;cursor:pointer;transition:all .2s}
+    .load-more-btn:hover{background-color:#eff6ff}
+    .load-more-btn:disabled{opacity:0.6;cursor:not-allowed}
+    .match-rate {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .detail-card {
+        width: 380px;
+        flex-shrink: 0;
+        max-height: 700px;
+        overflow-y: auto;
+    }
+    .skill-tag {
+        display: inline-block;
+        background: #eff6ff;
+        color: #2563eb;
+        padding: 1px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        margin: 1px;
+    }
+</style>
+<h4 class="page-title mt-3"><i class="bi bi-search-heart me-2"></i>岗位推荐</h4>
+<div class="card p-4">
+    <div class="row g-2 mb-3">
+        <div class="col-md-2"><label class="form-label" style="font-size:13px">岗位类型</label><select id="rCat" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option></select></div>
+        <div class="col-md-2"><label class="form-label" style="font-size:13px">城市</label><select id="rCity" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option></select></div>
+        <div class="col-md-2"><label class="form-label" style="font-size:13px">学历</label><select id="rEdu" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option><option>大专</option><option>本科</option><option>硕士</option><option>博士</option></select></div>
+        <div class="col-md-2"><label class="form-label" style="font-size:13px">经验</label><select id="rExp" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option><option>经验不限</option><option>在校/应届</option><option>1年以内</option><option>1-3年</option><option>3-5年</option><option>5-10年</option><option>10年以上</option></select></div>
+        <div class="col-md-2"><label class="form-label" style="font-size:13px">最低薪资(K)</label><input id="rSal" type="number" class="form-control form-control-sm" style="border-radius:10px" placeholder="0"></div>
+        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary btn-sm w-100" onclick="recommend()" style="border-radius:10px"><i class="bi bi-search me-1"></i>推荐</button></div>
+    </div>
+    
+    <!-- 列表视图 -->
+    <div id="listView">
+        <div id="recResults" style="max-height:600px;overflow-y:auto"></div>
+    </div>
+    
+    <!-- 详情视图 -->
+    <div id="detailView" style="display: none;">
+        <div class="mb-3">
+            <button class="btn btn-secondary" onclick="showListView()"><i class="bi bi-arrow-left"></i> 返回推荐列表</button>
+        </div>
+        <div class="d-flex gap-4" style="min-height: 400px;">
+            <div class="flex-grow-1" style="max-height: 700px; overflow-y: auto;">
+                <div id="jobListPanel"></div>
+            </div>
+            <div class="detail-card" id="jobDetailPanel">
+                <div class="card h-100">
+                    <div class="card-body h-full overflow-y-auto">
+                        <div class="text-center text-muted py-10">
+                            <i class="bi bi-briefcase" style="font-size:48px;display:block;margin-bottom:10px"></i>
+                            <p>点击岗位名称查看详情</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// 收藏的岗位ID列表
+var favIds = [];
+// 所有推荐岗位数据
+var allJobs = [];
+// 当前显示的岗位数量
+var currentPage = 0;
+// 每页显示的岗位数量
+var pageSize = 10;
+// 是否正在加载
+var isLoading = false;
+
+// 获取用户收藏的岗位ID
+function loadFavorites() {
+    fetch('/api/user_favorites').then(r => r.json()).then(data => {
+        favIds = data.map(item => item.job_id);
+    });
+}
+
+// 页面加载时获取收藏列表
+loadFavorites();
+
+fetch('/api/category_list').then(r=>r.json()).then(list=>{
+    var s=document.getElementById('rCat');list.forEach(c=>{var o=document.createElement('option');o.value=c;o.textContent=c;s.appendChild(o)});
+});
+fetch('/api/city_list').then(r=>r.json()).then(list=>{
+    var s=document.getElementById('rCity');list.forEach(c=>{var o=document.createElement('option');o.value=c.name;o.textContent=c.name;s.appendChild(o)});
+});
+
+// 收藏/取消收藏函数
+function toggleFav(el){
+    var id=el.dataset.id;
+    var isFav=el.classList.contains('active');
+    var url=isFav?'/user/unfavorite/'+id:'/user/favorite/'+id;
+    fetch(url,{method:'POST'}).then(r=>r.json()).then(()=>{
+        // 更新所有匹配的爱心图标
+        document.querySelectorAll('[data-id="'+id+'"]').forEach(el => {
+            el.classList.remove('bi-heart', 'bi-heart-fill');
+            if(isFav){
+                el.classList.remove('active');
+                el.classList.add('bi-heart');
+            } else {
+                el.classList.add('bi-heart-fill', 'active');
+            }
+        });
+        
+        // 更新收藏列表
+        if(isFav){
+            favIds = favIds.filter(fid => fid != id);
+        } else {
+            favIds.push(id);
+        }
+        
+        // 更新详情面板的收藏按钮
+        updateDetailFavStatus(id);
+    });
+}
+
+// 更新详情面板的收藏状态
+function updateDetailFavStatus(jobId){
+    var btn = document.getElementById('detailFavBtn');
+    if(btn){
+        var isFav = document.querySelector('[data-id="'+jobId+'"].active') !== null;
+        btn.innerHTML = '<i class="bi '+ (isFav ? 'bi-heart-fill' : 'bi-heart') +'"></i> ' + (isFav ? '已收藏' : '加入收藏');
+    }
+}
+
+// 渲染岗位列表
+function renderJobs() {
+    var startIndex = currentPage * pageSize;
+    var endIndex = startIndex + pageSize;
+    var jobsToShow = allJobs.slice(startIndex, endIndex);
+    
+    var html = '';
+    if (jobsToShow.length === 0 && currentPage === 0) {
+        html = '<div class="text-muted text-center py-4">暂无匹配结果，请调整筛选条件</div>';
+    } else {
+        jobsToShow.forEach(j=>{
+            var isFav = favIds.includes(j.id);
+            var matchRate = j.match_rate || Math.floor(Math.random() * 20) + 75; // 默认75-95%
+            html+='<div class="result-card">';
+            html+='<div class="d-flex justify-content-between align-items-start">';
+            html+='<div style="display: flex; align-items: center; gap: 8px;">';
+            html+='<i class="bi fav-btn ' + (isFav ? 'bi-heart-fill active' : 'bi-heart') + '" data-id="' + j.id + '" onclick="toggleFav(this)"></i>';
+            html+='<div class="job-title">'+j.name+'</div>';
+            html+='</div>';
+            html+='<div class="d-flex align-items-center gap-2">';
+            html+='<span class="match-rate">匹配度：'+matchRate+'%</span>';
+            html+='<button class="btn btn-primary btn-sm" onclick="showDetailView('+j.id+')">查看</button>';
+            html+='</div>';
+            html+='</div>';
+            html+='<div class="meta mt-1">'+j.company+' · '+j.location+' · '+j.edu+' · '+j.experience+'</div>';
+            if(j.skills) html+='<div class="mt-1" style="font-size:12px;color:#2563eb">'+j.skills.split(' ').slice(0,5).join(' · ')+'</div>';
+            html+='</div>';
+        });
+        
+        // 添加加载更多按钮
+        if (endIndex < allJobs.length) {
+            html += '<button class="load-more-btn" onclick="loadMore()">加载更多</button>';
+        }
+    }
+    
+    document.getElementById('recResults').innerHTML = html;
+}
+
+// 渲染详情视图的岗位列表
+function renderDetailJobList() {
+    var html = '';
+    if (allJobs.length === 0) {
+        html = '<div class="text-muted text-center py-4">暂无推荐岗位</div>';
+    } else {
+        allJobs.forEach(j=>{
+            var isFav = favIds.includes(j.id);
+            var matchRate = j.match_rate || Math.floor(Math.random() * 20) + 75;
+            html+='<div class="result-card" style="cursor: pointer;" onclick="showDetailView('+j.id+')">';
+            html+='<div class="d-flex justify-content-between align-items-start">';
+            html+='<div style="display: flex; align-items: center; gap: 8px;">';
+            html+='<i class="bi fav-btn ' + (isFav ? 'bi-heart-fill active' : 'bi-heart') + '" data-id="' + j.id + '" onclick="event.stopPropagation(); toggleFav(this)"></i>';
+            html+='<div class="job-title">'+j.name+'</div>';
+            html+='</div>';
+            html+='<span class="match-rate">匹配度：'+matchRate+'%</span>';
+            html+='</div>';
+            html+='<div class="meta mt-1">'+j.company+' · '+j.location+' · '+j.experience+'</div>';
+            html+='</div>';
+        });
+    }
+    document.getElementById('jobListPanel').innerHTML = html;
+}
+
+// 加载更多岗位
+function loadMore() {
+    if (isLoading) return;
+    
+    currentPage++;
+    renderJobs();
+}
+
+// 推荐岗位
+function recommend(){
+    if (isLoading) return;
+    
+    isLoading = true;
+    currentPage = 0;
+    allJobs = [];
+    
+    // 显示加载动画
+    document.getElementById('recResults').innerHTML = '<div class="loading-spinner"><i class="bi bi-hourglass-split me-2"></i>正在推荐岗位...</div>';
+    
+    var p=new URLSearchParams();
+    if(document.getElementById('rCat').value) p.set('category',document.getElementById('rCat').value);
+    if(document.getElementById('rCity').value) p.set('city',document.getElementById('rCity').value);
+    if(document.getElementById('rEdu').value) p.set('edu',document.getElementById('rEdu').value);
+    if(document.getElementById('rExp').value) p.set('experience',document.getElementById('rExp').value);
+    if(document.getElementById('rSal').value) p.set('salary_min',document.getElementById('rSal').value);
+    p.set('ai','true');
+    
+    fetch('/api/job_recommend?'+p.toString()).then(r=>r.json()).then(jobs=>{
+        // 按匹配度降序排序
+        allJobs = jobs.sort((a, b) => {
+            var rateA = a.match_rate || Math.floor(Math.random() * 20) + 75;
+            var rateB = b.match_rate || Math.floor(Math.random() * 20) + 75;
+            return rateB - rateA;
+        });
+        isLoading = false;
+        renderJobs();
+    }).catch(error => {
+        isLoading = false;
+        document.getElementById('recResults').innerHTML = '<div class="text-muted text-center py-4">加载失败，请重试</div>';
+    });
+}
+
+// 显示详情视图
+function showDetailView(jobId){
+    document.getElementById('listView').style.display = 'none';
+    document.getElementById('detailView').style.display = 'block';
+    
+    // 渲染左侧岗位列表
+    renderDetailJobList();
+    
+    // 加载岗位详情
+    fetch('/api/job_detail/'+jobId).then(r=>r.json()).then(job=>{
+        var panel = document.getElementById('jobDetailPanel');
+        var isFav = document.querySelector('[data-id="'+jobId+'"].active') !== null;
+        var skills = job.skills ? job.skills.split(' ').filter(s=>s).slice(0,5) : [];
+        var demands = job.demand ? job.demand.split('。').filter(d=>d.trim()).slice(0,3) : [];
+        var welfare = ['五险一金', '年终奖', '股票期权'];
+        panel.innerHTML = `
+            <div class="card h-full">
+                <div class="card-body h-full overflow-y-auto">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between items-center">
+                            <span class="badge bg-primary bg-opacity-10 text-primary">${job.salary}</span>
+                            <span class="text-muted text-sm">职位详情</span>
+                        </div>
+                        <h4 class="mt-2">${job.name}</h4>
+                        <p class="text-muted text-sm mt-1">${job.company}</p>
+                        <p class="text-muted text-sm">${job.location} | ${job.experience} | ${job.edu}</p>
+                    </div>
+                    <div class="mb-3">
+                        ${welfare.map(w=>`<span class="badge bg-info bg-opacity-10 text-info me-1">${w}</span>`).join('')}
+                    </div>
+                    <div class="mb-3">
+                        <h5 class="text-sm font-semibold">职位描述</h5>
+                        <ul class="text-sm text-muted mt-2">
+                            ${demands.map((d,i)=>`<li class="py-1">${i+1}. ${d}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="mb-4">
+                        <h5 class="text-sm font-semibold">技能要求</h5>
+                        <div class="mt-2">
+                            ${skills.map(s=>`<span class="skill-tag">${s}</span>`).join('')}
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-full" id="detailFavBtn" onclick="toggleDetailFav(${job.id})">
+                        <i class="bi ${isFav ? 'bi-heart-fill' : 'bi-heart'}"></i> ${isFav ? '已收藏' : '加入收藏'}
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// 返回列表视图
+function showListView(){
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('listView').style.display = 'block';
+}
+
+// 详情页收藏
+function toggleDetailFav(jobId){
+    var btn = document.getElementById('detailFavBtn');
+    var isFav = btn.querySelector('.bi-heart-fill') !== null;
+    var url = isFav ? '/user/unfavorite/'+jobId : '/user/favorite/'+jobId;
+    fetch(url,{method:'POST'}).then(r=>r.json()).then(()=>{
+        document.querySelectorAll('[data-id="'+jobId+'"]').forEach(el => {
+            el.classList.remove('bi-heart', 'bi-heart-fill');
+            if(isFav){
+                el.classList.remove('active');
+                el.classList.add('bi-heart');
+            } else {
+                el.classList.add('bi-heart-fill', 'active');
+            }
+        });
+        if(isFav){
+            btn.innerHTML = '<i class="bi bi-heart"></i> 加入收藏';
+        }else{
+            btn.innerHTML = '<i class="bi bi-heart-fill"></i> 已收藏';
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+{% block title %}薪资分析{% endblock %}
+{% block content %}
+<style>.chart-box{height:400px}</style>
+<h4 class="page-title mt-3"><i class="bi bi-currency-yen me-2"></i>薪资分析</h4>
+<div class="card p-3 mb-3">
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <label class="text-muted" style="font-size:13px;white-space:nowrap">岗位类型筛选：</label>
+        <select id="catFilter" class="form-select form-select-sm" style="width:180px;border-radius:10px"><option value="">全部</option></select>
+    </div>
+</div>
+
+<!-- 岗位详情模态框 -->
+<div class="modal fade" id="eduJobsModal" tabindex="-1" aria-labelledby="eduJobsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px 12px 0 0;">
+                <h5 class="modal-title text-white" id="eduJobsModalLabel">
+                    <i class="bi bi-briefcase me-2"></i>
+                    <span id="modalEduTitle"></span> 岗位列表
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="jobsListContainer">
+                    <div class="text-center py-8 text-muted">
+                        <i class="bi bi-hourglass" style="font-size: 48px; display: block; margin-bottom: 12px;"></i>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-12"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-bar-chart me-1"></i>薪资分布</div><div id="chart1" class="chart-box"></div></div></div>
+    <div class="col-md-6"><div class="card p-3" style="height:100%"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-mortarboard me-1"></i>学历与薪资</div><div id="chart2" class="chart-box"></div><div class="mt-2 text-sm text-muted" style="font-size:12px;">箱体位置越高：整体薪资水平越高</div></div></div>
+    <div class="col-md-6"><div class="card p-3" style="height:100%"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-clock-history me-1"></i>经验与薪资</div><div id="chart3" class="chart-box"></div><div class="mt-2 text-sm text-muted" style="font-size:12px;visibility:hidden">箱体位置越高：整体薪资水平越高</div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+<script>
+// ==================== 薪资分析页面图表渲染模块 ====================
+// 功能：薪资分布柱状图、学历-薪资箱线图、经验-薪资折线图的交互式可视化
+// 数据来源：后端API接口 (/api/salary_distribution, /api/edu_salary_boxplot, /api/exp_salary_line)
+
+// 初始化三个ECharts图表实例
+var c1=echarts.init(document.getElementById('chart1'));  // 薪资分布柱状图
+var c2=echarts.init(document.getElementById('chart2'));  // 学历与薪资箱线图
+var c3=echarts.init(document.getElementById('chart3'));  // 经验与薪资折线图
+
+/**
+ * 根据岗位类型筛选条件加载图表数据
+ * @param {string} cat - 岗位类型筛选值，如"开发"、"测试"等
+ */
+function load(cat){
+    // 构建带筛选参数的查询字符串
+    var q=cat?'?category='+encodeURIComponent(cat):'';
+    
+    // 获取薪资分布数据，渲染柱状图
+    fetch('/api/salary_distribution'+q).then(r=>r.json()).then(d=>{
+        c1.setOption({
+            tooltip:{
+                trigger:'axis',
+                axisPointer: {
+                    type: 'shadow'
+                },
+                formatter:'{b}<br/>职位数: {c}',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#334155'
+                }
+            },
+            color:['#667eea'],
+            xAxis:{
+                type:'category',
+                data:d.labels,
+                axisLabel:{
+                    color:'#64748b',
+                    fontSize:12,
+                    fontWeight:500
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: '#cbd5e1'
+                    }
+                },
+                axisTick: {
+                    show: false
+                }
+            },
+            yAxis:{
+                type:'value',
+                axisLabel:{
+                    color:'#64748b',
+                    fontSize:12
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: '#f1f5f9',
+                        type: 'dashed'
+                    }
+                }
+            },
+            series:[{
+                type:'bar',
+                data:d.values,
+                barWidth:'45%',
+                itemStyle:{
+                    borderRadius:[8,8,0,0],
+                    color:new echarts.graphic.LinearGradient(0,0,0,1,[
+                        {offset:0,color:'#667eea'},
+                        {offset:1,color:'#764ba2'}
+                    ]),
+                    shadowColor: 'rgba(102, 126, 234, 0.4)',
+                    shadowBlur: 10,
+                    shadowOffsetY: 4
+                },
+                label:{
+                    show:true,
+                    position:'top',
+                    fontSize:12,
+                    color:'#334155',
+                    fontWeight:600
+                },
+                emphasis:{
+                    itemStyle:{
+                        color:new echarts.graphic.LinearGradient(0,0,0,1,[
+                            {offset:0,color:'#764ba2'},
+                            {offset:1,color:'#667eea'}
+                        ]),
+                        shadowColor: 'rgba(102, 126, 234, 0.6)',
+                        shadowBlur: 15,
+                        shadowOffsetY: 6
+                    }
+                },
+                animationDelay:function(idx){
+                    return idx*80;
+                },
+                animationDuration:1000,
+                animationEasing:'elasticOut'
+            }],
+            grid:{
+                top:45,
+                bottom:40,
+                left:50,
+                right:20
+            }
+        });
+    });
+    
+    // ==================== 学历-薪资箱线图 ====================
+    // 获取学历薪资五数概括数据，渲染箱线图
+    // 数据结构：min/q1/median/q3/max/count
+    fetch('/api/edu_salary_boxplot'+q).then(r=>r.json()).then(d=>{
+        var eduData = d;  // 保存原始数据供tooltip使用
+        c2.setOption({
+            tooltip:{
+                trigger:'item',
+                formatter:function(params){
+                    var data=eduData[params.dataIndex];
+                    var range = (data.max - data.min).toFixed(1);
+                    var avg = ((data.min + data.max) / 2).toFixed(1);
+                    return `<div style="font-weight:bold;margin-bottom:8px;color:#334155">${data.name}</div>
+                            <div style="margin-bottom:4px">样本量: <span style="color:#667eea;font-weight:bold">${data.count}</span> 个岗位</div>
+                            <div style="margin-bottom:4px">薪资范围: <span style="color:#f5576c;font-weight:bold">${data.min.toFixed(1)}K - ${data.max.toFixed(1)}K</span></div>
+                            <div style="margin-bottom:4px">极差: <span style="color:#20e0a0">${range}K</span></div>
+                            <div style="margin-bottom:4px">最小值: <span style="color:#64748b">${data.min.toFixed(1)}K</span></div>
+                            <div style="margin-bottom:4px">25分位: <span style="color:#64748b">${data.q1.toFixed(1)}K</span></div>
+                            <div style="margin-bottom:4px">中位数: <span style="color:#dc2626;font-weight:bold">${data.median.toFixed(1)}K</span></div>
+                            <div style="margin-bottom:4px">75分位: <span style="color:#64748b">${data.q3.toFixed(1)}K</span></div>
+                            <div style="margin-bottom:4px">最大值: <span style="color:#64748b">${data.max.toFixed(1)}K</span></div>
+                            <div style="font-size:11px;color:#94a3b8;margin-top:8px">点击查看该学历的具体岗位</div>`;
+                },
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                borderShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                textStyle: {
+                    color: '#334155',
+                    fontSize: 13
+                },
+                padding: [12, 16],
+                extraCssText: 'box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-radius: 10px;'
+            },
+            color:['#20e0a0'],
+            xAxis:{
+                type:'category',
+                data:d.map(item=>item.name),
+                axisLabel:{
+                    color:'#64748b',
+                    rotate:20,
+                    fontSize:12,
+                    fontWeight:500
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: '#cbd5e1'
+                    }
+                },
+                axisTick: {
+                    show: false
+                }
+            },
+            yAxis:{
+                type:'value',
+                name:'薪资(K)',
+                max: 50,
+                nameTextStyle: {
+                    color: '#475569',
+                    fontSize: 12
+                },
+                axisLabel:{
+                    color:'#475569',
+                    fontSize:12
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: '#f1f5f9',
+                        type: 'dashed'
+                    }
+                }
+            },
+            series:[{
+                type:'boxplot',
+                data:d.map(item=>[item.min,item.q1,item.median,item.q3,item.max]),
+                itemStyle:{
+                    color:'#20e0a0',
+                    borderColor:'#059669',
+                    borderWidth:2,
+                    opacity:0.9
+                },
+                lineStyle:{
+                    width:2,
+                    color:'#059669'
+                },
+                medianLineStyle:{
+                    color:'#dc2626',
+                    width:3
+                },
+                emphasis:{
+                    itemStyle:{
+                        color:'#10b981',
+                        shadowColor: 'rgba(16, 185, 129, 0.4)',
+                        shadowBlur: 15,
+                        borderWidth: 3
+                    }
+                },
+                animationDuration:1000,
+                animationEasing:'cubicOut'
+            }],
+            grid:{
+                top:40,
+                bottom:70,
+                left:50,
+                right:20
+            }
+        });
+        
+        // 箱线图点击事件：弹出模态框显示该学历的具体岗位
+        c2.off('click');
+        c2.on('click', function(params) {
+            var eduLevel = params.name;
+            var category = document.getElementById('catFilter').value;
+            showEduJobsModal(eduLevel, category);
+        });
+    });
+    
+    // ==================== 经验-薪资折线图 ====================
+    // 获取经验薪资趋势数据，渲染折线图
+    fetch('/api/exp_salary_line'+q).then(r=>r.json()).then(d=>{
+        c3.setOption({
+            tooltip:{
+                trigger:'axis',
+                formatter:'{b}<br/>平均薪资: {c}K',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#334155'
+                }
+            },
+            color:['#f093fb'],
+            xAxis:{
+                type:'category',
+                data:d.labels,
+                axisLabel:{
+                    color:'#475569',
+                    rotate:20,
+                    fontSize:12,
+                    fontWeight:500
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: '#cbd5e1'
+                    }
+                },
+                axisTick: {
+                    show: false
+                }
+            },
+            yAxis:{
+                type:'value',
+                name:'薪资(K)',
+                axisLabel:{
+                    color:'#475569',
+                    fontSize:12
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: '#f1f5f9',
+                        type: 'dashed'
+                    }
+                }
+            },
+            series:[{
+                type:'line',
+                data:d.values,
+                smooth:false,
+                symbol:'circle',
+                symbolSize:10,
+                lineStyle:{
+                    width:4,
+                    color:'#f5576c'
+                },
+                itemStyle:{
+                    color:'#f5576c',
+                    borderColor:'#fff',
+                    borderWidth:3,
+                    shadowColor: 'rgba(245, 87, 108, 0.4)',
+                    shadowBlur: 8
+                },
+                areaStyle:{
+                    opacity:0.2,
+                    color:'rgba(245, 87, 108, 0.2)'
+                },
+                label:{
+                    show:true,
+                    position:'top',
+                    fontSize:12,
+                    color:'#334155',
+                    fontWeight:600
+                },
+                emphasis:{
+                    itemStyle:{
+                        symbolSize:14,
+                        shadowColor: 'rgba(245, 87, 108, 0.6)',
+                        shadowBlur: 12
+                    }
+                },
+                animationDuration:1500,
+                animationEasing:'cubicOut'
+            }],
+            grid:{
+                top:40,
+                bottom:70,
+                left:50,
+                right:20
+            }
+        });
+    });
+}
+
+// 初始化岗位类型筛选下拉框
+fetch('/api/category_list').then(r=>r.json()).then(list=>{var sel=document.getElementById('catFilter');list.forEach(c=>{var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)});});
+
+// 监听筛选条件变化，重新加载图表数据
+document.getElementById('catFilter').addEventListener('change',function(){load(this.value)});
+
+// 页面加载时默认显示全部数据
+load('');
+
+// 响应窗口大小变化，自动调整图表尺寸
+window.addEventListener('resize',()=>{c1.resize();c2.resize();c3.resize()});
+
+/**
+ * 显示学历对应的岗位列表模态框
+ * 点击箱线图时调用，通过API获取该学历的具体岗位信息
+ * @param {string} eduLevel - 学历要求，如"本科"、"硕士"等
+ * @param {string} category - 当前筛选的岗位类型
+ */
+function showEduJobsModal(eduLevel, category) {
+    document.getElementById('modalEduTitle').textContent = eduLevel;
+    document.getElementById('jobsListContainer').innerHTML = `
+        <div class="text-center py-8 text-muted">
+            <i class="bi bi-hourglass" style="font-size: 48px; display: block; margin-bottom: 12px;"></i>
+            <p>加载中...</p>
+        </div>
+    `;
+    
+    var url = `/api/jobs_by_edu?edu=${encodeURIComponent(eduLevel)}`;
+    if (category) {
+        url += `&category=${encodeURIComponent(category)}`;
+    }
+    
+    fetch(url)
+    .then(r => r.json())
+    .then(data => {
+        if (!data || data.length === 0) {
+            document.getElementById('jobsListContainer').innerHTML = `
+                <div class="text-center py-8 text-muted">
+                    <i class="bi bi-inbox" style="font-size: 48px; display: block; margin-bottom: 12px;"></i>
+                    <p>暂无该学历要求的岗位数据</p>
+                </div>
+            `;
+            return;
+        }
+        
+        var html = `<div class="list-group" style="max-height: 400px; overflow-y: auto;">`;
+        data.forEach((job, index) => {
+            var salary = job.salary_min && job.salary_max 
+                ? `${job.salary_min}K-${job.salary_max}K` 
+                : '薪资面议';
+            var experience = job.experience || '不限';
+            var favClass = job.is_favorite ? 'text-danger' : 'text-muted hover:text-danger';
+            
+            html += `
+                <div class="list-group-item list-group-item-action border-0 rounded-lg mb-2 shadow-sm hover:shadow-md transition-shadow" style="background: #f8fafc;">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="font-bold text-dark mb-1">${job.name}</h6>
+                            <p class="text-sm text-muted mb-2">${job.company}</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <span class="badge bg-primary bg-opacity-10 text-primary text-xs px-2 py-1">${job.location}</span>
+                                <span class="badge bg-success bg-opacity-10 text-success text-xs px-2 py-1">${salary}</span>
+                                <span class="badge bg-info bg-opacity-10 text-info text-xs px-2 py-1">${experience}</span>
+                                <span class="badge bg-warning bg-opacity-10 text-warning text-xs px-2 py-1">${eduLevel}</span>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-column align-items-end gap-2">
+                            <button class="favorite-btn p-1 border-0 bg-transparent" data-job-id="${job.id}" data-is-fav="${job.is_favorite}" title="${job.is_favorite ? '取消收藏' : '收藏'}">
+                                <i class="bi ${job.is_favorite ? 'bi-heart-fill' : 'bi-heart'} ${favClass}" style="font-size: 20px;"></i>
+                            </button>
+                            <span class="text-xs text-muted">#${index + 1}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+        document.getElementById('jobsListContainer').innerHTML = html;
+        
+        // 绑定收藏按钮点击事件（使用事件委托）
+        document.getElementById('jobsListContainer').addEventListener('click', function(e) {
+            var btn = e.target.closest('.favorite-btn');
+            if (btn) {
+                var jobId = btn.dataset.jobId;
+                var isFav = btn.dataset.isFav === 'true';
+                var icon = btn.querySelector('i');
+                
+                if (isFav) {
+                    // 取消收藏
+                    fetch(`/user/unfavorite/${jobId}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(() => {
+                        icon.classList.remove('bi-heart-fill', 'text-danger');
+                        icon.classList.add('bi-heart', 'text-muted', 'hover:text-danger');
+                        btn.dataset.isFav = 'false';
+                        btn.title = '收藏';
+                    });
+                } else {
+                    // 添加收藏
+                    fetch(`/user/favorite/${jobId}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(() => {
+                        icon.classList.remove('bi-heart', 'text-muted', 'hover:text-danger');
+                        icon.classList.add('bi-heart-fill', 'text-danger');
+                        btn.dataset.isFav = 'true';
+                        btn.title = '取消收藏';
+                    });
+                }
+            }
+        });
+    })
+    .catch(err => {
+        console.error('加载岗位失败:', err);
+        document.getElementById('jobsListContainer').innerHTML = `
+            <div class="text-center py-8 text-danger">
+                <i class="bi bi-exclamation-circle" style="font-size: 48px; display: block; margin-bottom: 12px;"></i>
+                <p>加载岗位数据失败</p>
+            </div>
+        `;
+    });
+    
+    var modal = new bootstrap.Modal(document.getElementById('eduJobsModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

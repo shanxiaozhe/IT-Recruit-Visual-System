@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}岗位管理 - 管理员{% endblock %}
+{% block content %}
+<style>
+    .tool-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:#f8fafc;border-radius:12px}
+    .table-wrap{overflow-x:auto}
+    .modal .form-control,.modal .form-select{border-radius:10px;border:1px solid #c1c1c1}
+    .modal .modal-content{border-radius:20px;border:none;box-shadow:rgba(0,0,0,0.1) 0 8px 24px}
+    .modal .modal-header{border-bottom:1px solid #e5e5e5}
+    .modal .modal-footer{border-top:1px solid #e5e5e5}
+    .demand-cell{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .skill-tag{display:inline-block;background:#eff6ff;color:#2563eb;padding:1px 8px;border-radius:6px;font-size:12px;margin:1px}
+</style>
+<h4 class="page-title"><i class="bi bi-database me-2"></i>岗位管理</h4>
+<div class="card p-4 mb-3">
+    <form class="filter-bar" method="get">
+        <input type="text" name="keyword" class="form-control" style="width:240px;border-radius:10px" placeholder="请输入岗位/公司名称" value="{{ keyword }}">
+        <select name="location" class="form-select" style="width:120px;border-radius:10px">
+            <option value="">城市: 全部</option>
+            {% for loc in locations %}
+            <option value="{{ loc }}" {% if location == loc %}selected{% endif %}>{{ loc }}</option>
+            {% endfor %}
+        </select>
+        <select name="edu" class="form-select" style="width:100px;border-radius:10px">
+            <option value="">学历: 全部</option>
+            {% for e in edu_options %}
+            <option value="{{ e }}" {% if edu == e %}selected{% endif %}>{{ e }}</option>
+            {% endfor %}
+        </select>
+        <select name="experience" class="form-select" style="width:120px;border-radius:10px">
+            <option value="">经验: 全部</option>
+            {% for exp in exp_options %}
+            <option value="{{ exp }}" {% if experience == exp %}selected{% endif %}>{{ exp }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary" style="border-radius:10px"><i class="bi bi-search"></i> 查询</button>
+        <button type="button" class="btn btn-outline-secondary" style="border-radius:10px" onclick="resetFilter()"><i class="bi bi-arrow-counterclockwise"></i> 重置</button>
+    </form>
+    
+    <div class="tool-bar mb-3">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addModal"><i class="bi bi-plus-lg"></i> 添加</button>
+        <a href="{{ url_for('admin_import') }}" class="btn btn-outline-primary"><i class="bi bi-upload"></i> 导入CSV</a>
+    </div>
+    
+    <div class="table-wrap">
+    <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>公司</th><th>企业性质</th><th>企业规模</th><th>岗位</th><th>城市</th><th>薪资</th><th>学历</th><th>经验</th><th>技能</th><th style="width:120px">操作</th></tr></thead>
+        <tbody>
+        {% for job in pagination.items %}
+        <tr>
+            <td>{{ job.company[:12] }}{% if job.company|length > 12 %}...{% endif %}</td>
+            <td><span class="badge bg-info bg-opacity-10 text-info">{{ job.company|classify_nature }}</span></td>
+            <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ job.company|assign_scale }}</span></td>
+            <td><strong>{{ job.name }}</strong></td>
+            <td>{{ job.location }}</td>
+            <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ job.salary }}</span></td>
+            <td>{{ job.edu }}</td>
+            <td>{{ job.experience }}</td>
+            <td>{% for s in job.skills.split()[:3] %}<span class="skill-tag">{{ s }}</span>{% endfor %}</td>
+            <td class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-info view-detail-btn" data-id="{{ job.id }}" data-company="{{ job.company|e }}" data-name="{{ job.name|e }}" data-location="{{ job.location|e }}" data-salary="{{ job.salary|e }}" data-edu="{{ job.edu|e }}" data-experience="{{ job.experience|e }}" data-skills="{{ job.skills|e }}" data-demand="{{ job.demand|replace('\n','\\n')|replace("'","\\'")|e }}"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openEdit({{ job.id }},'{{ job.company|e }}','{{ job.name|e }}','{{ job.location|e }}','{{ job.salary|e }}','{{ job.edu|e }}','{{ job.experience|e }}','{{ job.skills|e }}')"><i class="bi bi-pencil"></i></button>
+                <form method="post" action="{{ url_for('admin_job_delete', job_id=job.id) }}" style="margin:0" onsubmit="return confirm('确认删除？')">
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if pagination.pages > 1 %}
+    <nav class="mt-3"><ul class="pagination justify-content-center mb-0">
+        {% if pagination.has_prev %}<li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}&keyword={{ keyword }}&location={{ location }}&edu={{ edu }}&experience={{ experience }}">&laquo;</a></li>{% endif %}
+        {% for p in pagination.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+            {% if p %}<li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="?page={{ p }}&keyword={{ keyword }}&location={{ location }}&edu={{ edu }}&experience={{ experience }}">{{ p }}</a></li>
+            {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}<li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}&keyword={{ keyword }}&location={{ location }}&edu={{ edu }}&experience={{ experience }}">&raquo;</a></li>{% endif %}
+    </ul></nav>
+    {% endif %}
+</div>
+
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-eye me-2"></i>岗位详情</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="p-4 bg-light rounded-xl">
+                    <h6 style="font-weight:600;color:#666">基本信息</h6>
+                    <div class="mt-3 space-y-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">公司名称</span>
+                            <span id="dCompany"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">岗位名称</span>
+                            <span id="dName"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">工作城市</span>
+                            <span id="dLocation"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">薪资待遇</span>
+                            <span class="text-primary font-weight-bold" id="dSalary"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">学历要求</span>
+                            <span id="dEdu"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">经验要求</span>
+                            <span id="dExp"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-4 bg-light rounded-xl">
+                    <h6 style="font-weight:600;color:#666">技能标签</h6>
+                    <div class="mt-3" id="dSkills"></div>
+                </div>
+                <div class="p-4 bg-light rounded-xl mt-4">
+                    <h6 style="font-weight:600;color:#666">岗位要求</h6>
+                    <div class="mt-3 text-muted" id="dDemand" style="white-space:pre-wrap;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">关闭</button></div>
+</div></div></div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>添加岗位</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form method="post" action="{{ url_for('admin_job_add') }}">
+    <div class="modal-body">
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">公司</label><input name="company" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">岗位名称</label><input name="name" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label">城市</label><input name="location" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label">薪资</label><input name="salary" class="form-control" placeholder="如 10-15K" required></div>
+            <div class="col-md-4"><label class="form-label">学历</label><select name="edu" class="form-select"><option>本科</option><option>大专</option><option>硕士</option><option>博士</option><option>学历不限</option><option>中专/中技</option><option>高中</option></select></div>
+            <div class="col-md-4"><label class="form-label">经验</label><select name="experience" class="form-select"><option>经验不限</option><option>在校/应届</option><option>1年以内</option><option>1-3年</option><option>3-5年</option><option>5-10年</option><option>10年以上</option></select></div>
+            <div class="col-md-8"><label class="form-label">技能标签</label><input name="skills" class="form-control" placeholder="空格分隔"></div>
+            <div class="col-12"><label class="form-label">岗位要求</label><textarea name="demand" class="form-control" rows="3"></textarea></div>
+        </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>添加</button></div>
+    </form>
+</div></div></div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-pencil me-2"></i>编辑岗位</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <form method="post" id="editForm">
+    <div class="modal-body">
+        <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">公司</label><input name="company" id="eCompany" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">岗位名称</label><input name="name" id="eName" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label">城市</label><input name="location" id="eLocation" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label">薪资</label><input name="salary" id="eSalary" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label">学历</label><input name="edu" id="eEdu" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">经验</label><input name="experience" id="eExp" class="form-control"></div>
+            <div class="col-md-8"><label class="form-label">技能标签</label><input name="skills" id="eSkills" class="form-control"></div>
+        </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>保存</button></div>
+    </form>
+</div></div></div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.view-detail-btn')) {
+            var btn = e.target.closest('.view-detail-btn');
+            openDetail(btn);
+        }
+    });
+});
+
+function openDetail(btn){
+    var company = btn.dataset.company || '';
+    var name = btn.dataset.name || '';
+    var loc = btn.dataset.location || '';
+    var sal = btn.dataset.salary || '';
+    var edu = btn.dataset.edu || '';
+    var exp = btn.dataset.experience || '';
+    var skills = btn.dataset.skills || '';
+    var demand = btn.dataset.demand || '';
+    
+    document.getElementById('dCompany').textContent = company;
+    document.getElementById('dName').textContent = name;
+    document.getElementById('dLocation').textContent = loc;
+    document.getElementById('dSalary').textContent = sal;
+    document.getElementById('dEdu').textContent = edu;
+    document.getElementById('dExp').textContent = exp;
+    
+    var skillsDiv = document.getElementById('dSkills');
+    skillsDiv.innerHTML = '';
+    skills.split(' ').forEach(function(skill) {
+        if(skill.trim()) {
+            var span = document.createElement('span');
+            span.className = 'skill-tag';
+            span.textContent = skill;
+            skillsDiv.appendChild(span);
+        }
+    });
+    
+    document.getElementById('dDemand').textContent = demand || '-';
+    new bootstrap.Modal(document.getElementById('detailModal')).show();
+}
+
+function openEdit(id,company,name,loc,sal,edu,exp,skills){
+    document.getElementById('editForm').action='/admin/job/edit/'+id;
+    document.getElementById('eCompany').value=company;
+    document.getElementById('eName').value=name;
+    document.getElementById('eLocation').value=loc;
+    document.getElementById('eSalary').value=sal;
+    document.getElementById('eEdu').value=edu;
+    document.getElementById('eExp').value=exp;
+    document.getElementById('eSkills').value=skills;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+function resetFilter() {
+    window.location.href = '{{ url_for('admin_data_manage') }}';
+}
+</script>
+{% endblock %}

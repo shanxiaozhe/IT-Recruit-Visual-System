@@ -1,0 +1,444 @@
+{% extends 'base.html' %}
+{% block title %}企业分析{% endblock %}
+{% block content %}
+<style>.chart-box{height:400px}</style>
+<h4 class="page-title mt-3"><i class="bi bi-building me-2"></i>企业分析</h4>
+<div class="row g-3">
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-pie-chart me-1"></i>公司类型分布</div><div id="chart1" class="chart-box"></div></div></div>
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-bank me-1"></i>企业性质分布</div><div id="chartNature" class="chart-box"></div></div></div>
+    <div class="col-12"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-bar-chart me-1"></i>企业规模统计堆叠柱状图</div><div id="chart2" style="height:420px"></div></div></div>
+
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-emoji-smile me-1"></i>招聘文案情感分类</div><div id="chart3" class="chart-box"></div></div></div>
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-gift me-1"></i>企业福利词云</div><div id="wc1" class="chart-box"></div></div></div>
+    <div class="col-12"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-trophy me-1"></i>招聘岗位最多企业 TOP15</div><div id="chart4" style="height:440px"></div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/echarts-wordcloud.min.js') }}"></script>
+<script>
+var ringColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8','#f97316','#14b8a6'];
+var sentColors={'积极':'#20e0a0','消极':'#f5576c','中性':'#818cf8'};
+fetch('/api/company_type_stats').then(r=>r.json()).then(d=>{
+    var c=echarts.init(document.getElementById('chart1'));
+    c.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:'{b}: {c} ({d}%)',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        color:ringColors,
+        series:[{
+            type:'pie',
+            radius:['40%','72%'],
+            center:['50%','55%'],
+            itemStyle:{
+                borderRadius:8,
+                borderColor:'#fff',
+                borderWidth:3
+            },
+            label:{
+                show:true,
+                fontSize:12,
+                color:'#334155',
+                fontWeight:600,
+                formatter:'{b}\n{d}%'
+            },
+            labelLine:{
+                length:12,
+                length2:18,
+                smooth:true
+            },
+            emphasis:{
+                itemStyle:{
+                    shadowBlur:15,
+                    shadowOffsetX:0,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            },
+            animationType:'expand',
+            animationDuration:1000,
+            animationEasing:'cubicOut',
+            data:d
+        }]
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+fetch('/api/company_nature_stats').then(r=>r.json()).then(d=>{
+    var c=echarts.init(document.getElementById('chartNature'));
+    c.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:'{b}: {c} ({d}%)',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        color:ringColors,
+        series:[{
+            type:'pie',
+            radius:['40%','72%'],
+            center:['50%','55%'],
+            itemStyle:{
+                borderRadius:8,
+                borderColor:'#fff',
+                borderWidth:3
+            },
+            label:{
+                show:true,
+                fontSize:12,
+                color:'#334155',
+                fontWeight:600,
+                formatter:'{b}\n{d}%'
+            },
+            labelLine:{
+                length:12,
+                length2:18,
+                smooth:true
+            },
+            emphasis:{
+                itemStyle:{
+                    shadowBlur:15,
+                    shadowOffsetX:0,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            },
+            animationType:'expand',
+            animationDuration:1000,
+            animationEasing:'cubicOut',
+            data:d
+        }]
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+var lineColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6'];
+fetch('/api/company_scale_line_stats').then(r=>r.json()).then(d=>{
+    var c=echarts.init(document.getElementById('chart2'));
+    var series=d.series.map(function(s,i){
+        return {
+            name:s.name,
+            type:'bar',
+            stack:'total',
+            emphasis:{
+                focus:'series'
+            },
+            data:s.data,
+            itemStyle:{
+                color:lineColors[i%lineColors.length],
+                borderRadius:i===d.series.length-1?[0,0,8,8]:[0,0,0,0]
+            },
+            label:{
+                show:false,
+                position:'top',
+                fontSize:11,
+                color:'#334155'
+            }
+        };
+    });
+    c.setOption({
+        tooltip:{
+            trigger:'axis',
+            axisPointer:{
+                type:'shadow'
+            },
+            formatter:function(params){
+                var result=params[0].name+'<br/>';
+                params.forEach(function(param){
+                    result+=param.marker+param.seriesName+': '+param.value+'<br/>';
+                });
+                return result;
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        legend:{
+            data:d.series.map(function(s){return s.name}),
+            bottom:0,
+            textStyle:{
+                color:'#334155',
+                fontSize:12,
+                fontWeight:500
+            },
+            itemWidth:14,
+            itemHeight:14
+        },
+        color:lineColors,
+        xAxis:{
+            type:'category',
+            data:d.categories,
+            axisLabel:{
+                color:'#64748b',
+                fontSize:12,
+                fontWeight:500,
+                rotate:30
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            },
+            axisTick:{
+                show:false
+            }
+        },
+        yAxis:{
+            type:'value',
+            axisLabel:{
+                color:'#64748b',
+                fontSize:12
+            },
+            axisLine:{
+                show:false
+            },
+            axisTick:{
+                show:false
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#f1f5f9',
+                    type:'dashed'
+                }
+            }
+        },
+        series:series,
+        grid:{
+            top:40,
+            bottom:80,
+            left:60,
+            right:30
+        },
+        animationDuration:1500,
+        animationEasing:'cubicOut'
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+fetch('/api/sentiment_stats').then(r=>r.json()).then(d=>{
+    var c=echarts.init(document.getElementById('chart3'));
+    d.forEach(function(item){
+        item.itemStyle={color:sentColors[item.name]||'#818cf8'};
+    });
+    c.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:'{b}: {c} ({d}%)',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        legend:{
+            orient:'horizontal',
+            bottom:0,
+            data:['积极','消极','中性'],
+            textStyle:{
+                color:'#334155',
+                fontSize:13,
+                fontWeight:500
+            },
+            itemWidth:14,
+            itemHeight:14
+        },
+        series:[{
+            type:'pie',
+            radius:['40%','72%'],
+            center:['50%','55%'],
+            itemStyle:{
+                borderRadius:8,
+                borderColor:'#fff',
+                borderWidth:3
+            },
+            label:{
+                show:true,
+                fontSize:13,
+                color:'#334155',
+                fontWeight:600,
+                formatter:'{b}\n{d}%'
+            },
+            labelLine:{
+                length:12,
+                length2:18,
+                smooth:true
+            },
+            emphasis:{
+                itemStyle:{
+                    shadowBlur:15,
+                    shadowOffsetX:0,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            },
+            animationType:'expand',
+            animationDuration:1000,
+            animationEasing:'cubicOut',
+            data:d
+        }]
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+var wcColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8'];
+fetch('/api/wordcloud_data?type=benefits').then(r=>r.json()).then(d=>{
+    var c=echarts.init(document.getElementById('wc1'));
+    c.setOption({
+        tooltip:{
+            show:true,
+            formatter:function(p){
+                return p.name+': '+p.value;
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        series:[{
+            type:'wordCloud',
+            shape:'circle',
+            left:'center',
+            top:'center',
+            width:'90%',
+            height:'85%',
+            sizeRange:[14,54],
+            rotationRange:[-30,30],
+            rotationStep:10,
+            gridSize:10,
+            drawOutOfBound:false,
+            textStyle:{
+                fontFamily:'Microsoft YaHei',
+                fontWeight:'bold',
+                color:function(){
+                    return wcColors[Math.floor(Math.random()*wcColors.length)];
+                }
+            },
+            emphasis:{
+                textStyle:{
+                    shadowBlur:15,
+                    shadowColor:'#333'
+                }
+            },
+            data:d
+        }]
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+fetch('/api/top_companies').then(r=>r.json()).then(d=>{
+    var c=echarts.init(document.getElementById('chart4'));
+    c.setOption({
+        tooltip:{
+            trigger:'axis',
+            axisPointer:{
+                type:'shadow'
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        color:['#667eea'],
+        xAxis:{
+            type:'value',
+            axisLabel:{
+                color:'#64748b',
+                fontSize:12
+            },
+            axisLine:{
+                show:false
+            },
+            axisTick:{
+                show:false
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#f1f5f9',
+                    type:'dashed'
+                }
+            }
+        },
+        yAxis:{
+            type:'category',
+            data:d.labels,
+            axisLabel:{
+                color:'#334155',
+                fontSize:12,
+                fontWeight:500
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            },
+            axisTick:{
+                show:false
+            }
+        },
+        series:[{
+            type:'bar',
+            data:d.values,
+            barWidth:'55%',
+            itemStyle:{
+                borderRadius:[0,8,8,0],
+                color:new echarts.graphic.LinearGradient(1,0,0,0,[
+                    {offset:0,color:'#667eea'},
+                    {offset:1,color:'#764ba2'}
+                ]),
+                shadowColor:'rgba(102,126,234,0.4)',
+                shadowBlur:10,
+                shadowOffsetX:4
+            },
+            label:{
+                show:true,
+                position:'right',
+                fontSize:12,
+                color:'#334155',
+                fontWeight:600
+            },
+            emphasis:{
+                itemStyle:{
+                    color:new echarts.graphic.LinearGradient(1,0,0,0,[
+                        {offset:0,color:'#764ba2'},
+                        {offset:1,color:'#667eea'}
+                    ]),
+                    shadowColor:'rgba(102,126,234,0.6)',
+                    shadowBlur:15,
+                    shadowOffsetX:6
+                }
+            },
+            animationDelay:function(idx){
+                return idx*60;
+            },
+            animationDuration:1000,
+            animationEasing:'elasticOut'
+        }],
+        grid:{
+            top:20,
+            bottom:30,
+            left:180,
+            right:60
+        }
+    });
+    window.addEventListener('resize',()=>c.resize());
+});
+
+</script>
+{% endblock %}

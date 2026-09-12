@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}数据分析{% endblock %}
+{% block content %}
+<style>
+    .result-card{border:1px solid #e5e5e5;border-radius:12px;padding:14px 18px;margin-bottom:10px;transition:all .15s}
+    .result-card:hover{border-color:#2563eb;box-shadow:0 2px 8px rgba(37,99,235,.1)}
+    .result-card .job-title{font-weight:600;color:#222;font-size:15px}
+    .result-card .meta{font-size:13px;color:#6a6a6a}
+    .predict-box{background:#f8fafc;border-radius:16px;padding:24px;text-align:center}
+    .predict-val{font-size:36px;font-weight:700;color:#2563eb}
+</style>
+<h4 class="page-title mt-3"><i class="bi bi-graph-up-arrow me-2"></i>数据分析</h4>
+<div class="row g-3">
+    <div class="col-lg-6"><div class="card p-4">
+        <h5 class="mb-3" style="font-weight:600"><i class="bi bi-search-heart me-2"></i>岗位推荐</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label" style="font-size:13px">岗位类型</label><select id="rCat" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option></select></div>
+            <div class="col-6"><label class="form-label" style="font-size:13px">城市</label><select id="rCity" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option></select></div>
+            <div class="col-4"><label class="form-label" style="font-size:13px">学历</label><select id="rEdu" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option><option>大专</option><option>本科</option><option>硕士</option><option>博士</option></select></div>
+            <div class="col-4"><label class="form-label" style="font-size:13px">经验</label><select id="rExp" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option><option>经验不限</option><option>在校/应届</option><option>1年以内</option><option>1-3年</option><option>3-5年</option><option>5-10年</option><option>10年以上</option></select></div>
+            <div class="col-4"><label class="form-label" style="font-size:13px">最低薪资(K)</label><input id="rSal" type="number" class="form-control form-control-sm" style="border-radius:10px" placeholder="0"></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100 mb-3" onclick="recommend()" style="border-radius:10px"><i class="bi bi-search me-1"></i>推荐</button>
+        <div id="recResults" style="max-height:420px;overflow-y:auto"></div>
+    </div></div>
+    <div class="col-lg-6"><div class="card p-4">
+        <h5 class="mb-3" style="font-weight:600"><i class="bi bi-calculator me-2"></i>薪资预测</h5>
+        <div class="row g-2 mb-3">
+            <div class="col-4"><label class="form-label" style="font-size:13px">城市</label><select id="pCity" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option></select></div>
+            <div class="col-4"><label class="form-label" style="font-size:13px">学历</label><select id="pEdu" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option><option>大专</option><option>本科</option><option>硕士</option><option>博士</option></select></div>
+            <div class="col-4"><label class="form-label" style="font-size:13px">经验</label><select id="pExp" class="form-select form-select-sm" style="border-radius:10px"><option value="">不限</option><option>经验不限</option><option>在校/应届</option><option>1年以内</option><option>1-3年</option><option>3-5年</option><option>5-10年</option><option>10年以上</option></select></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-100 mb-3" onclick="predict()" style="border-radius:10px"><i class="bi bi-lightning me-1"></i>预测</button>
+        <div id="predictResult">
+            <div class="predict-box">
+                <div class="text-muted mb-2">预测平均薪资</div>
+                <div class="predict-val" id="pAvg">--</div>
+                <div class="text-muted mt-1" style="font-size:13px">K/月</div>
+            </div>
+            <div class="row g-2 mt-3 text-center">
+                <div class="col-3"><div class="p-2 rounded-3" style="background:#f0fdf4"><div style="font-weight:600;color:#16a34a" id="pMin">--</div><div style="font-size:12px;color:#6a6a6a">最低</div></div></div>
+                <div class="col-3"><div class="p-2 rounded-3" style="background:#eff6ff"><div style="font-weight:600;color:#2563eb" id="p25">--</div><div style="font-size:12px;color:#6a6a6a">25分位</div></div></div>
+                <div class="col-3"><div class="p-2 rounded-3" style="background:#eff6ff"><div style="font-weight:600;color:#2563eb" id="p75">--</div><div style="font-size:12px;color:#6a6a6a">75分位</div></div></div>
+                <div class="col-3"><div class="p-2 rounded-3" style="background:#fef2f2"><div style="font-weight:600;color:#dc2626" id="pMax">--</div><div style="font-size:12px;color:#6a6a6a">最高</div></div></div>
+            </div>
+            <div class="text-center mt-2 text-muted" style="font-size:12px">基于 <span id="pCount">0</span> 条相关数据分析</div>
+        </div>
+    </div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+fetch('/api/category_list').then(r=>r.json()).then(list=>{
+    ['rCat'].forEach(id=>{var s=document.getElementById(id);list.forEach(c=>{var o=document.createElement('option');o.value=c;o.textContent=c;s.appendChild(o)})});
+});
+fetch('/api/city_list').then(r=>r.json()).then(list=>{
+    ['rCity','pCity'].forEach(id=>{var s=document.getElementById(id);list.forEach(c=>{var o=document.createElement('option');o.value=c.name;o.textContent=c.name;s.appendChild(o)})});
+});
+function recommend(){
+    var p=new URLSearchParams();
+    if(document.getElementById('rCat').value) p.set('category',document.getElementById('rCat').value);
+    if(document.getElementById('rCity').value) p.set('city',document.getElementById('rCity').value);
+    if(document.getElementById('rEdu').value) p.set('edu',document.getElementById('rEdu').value);
+    if(document.getElementById('rExp').value) p.set('experience',document.getElementById('rExp').value);
+    if(document.getElementById('rSal').value) p.set('salary_min',document.getElementById('rSal').value);
+    fetch('/api/job_recommend?'+p.toString()).then(r=>r.json()).then(jobs=>{
+        var html='';
+        if(!jobs.length) html='<div class="text-muted text-center py-4">暂无匹配结果，请调整筛选条件</div>';
+        jobs.forEach(j=>{
+            html+='<div class="result-card"><div class="d-flex justify-content-between align-items-start"><div class="job-title">'+j.name+'</div><span class="badge bg-primary bg-opacity-10 text-primary">'+j.salary+'</span></div><div class="meta mt-1">'+j.company+' · '+j.location+' · '+j.edu+' · '+j.experience+'</div>';
+            if(j.skills) html+='<div class="mt-1" style="font-size:12px;color:#2563eb">'+j.skills.split(' ').slice(0,5).join(' · ')+'</div>';
+            html+='</div>';
+        });
+        document.getElementById('recResults').innerHTML=html;
+    });
+}
+function predict(){
+    var p=new URLSearchParams();
+    if(document.getElementById('pCity').value) p.set('city',document.getElementById('pCity').value);
+    if(document.getElementById('pEdu').value) p.set('edu',document.getElementById('pEdu').value);
+    if(document.getElementById('pExp').value) p.set('experience',document.getElementById('pExp').value);
+    fetch('/api/salary_predict?'+p.toString()).then(r=>r.json()).then(d=>{
+        document.getElementById('pAvg').textContent=d.avg||'--';
+        document.getElementById('pMin').textContent=d.min?d.min+'K':'--';
+        document.getElementById('p25').textContent=d.percentile_25?d.percentile_25+'K':'--';
+        document.getElementById('p75').textContent=d.percentile_75?d.percentile_75+'K':'--';
+        document.getElementById('pMax').textContent=d.max?d.max+'K':'--';
+        document.getElementById('pCount').textContent=d.count;
+    });
+}
+</script>
+{% endblock %}

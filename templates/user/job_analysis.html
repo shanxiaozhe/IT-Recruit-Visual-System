@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+{% block title %}岗位分析{% endblock %}
+{% block content %}
+<style>.chart-box{height:400px}</style>
+<h4 class="page-title mt-3"><i class="bi bi-briefcase me-2"></i>岗位分析</h4>
+<div class="card p-3 mb-3">
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <label class="text-muted" style="font-size:13px;white-space:nowrap">岗位类型筛选：</label>
+        <select id="catFilter" class="form-select form-select-sm" style="width:180px;border-radius:10px"><option value="">全部</option></select>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-mortarboard me-1"></i>学历要求分布</div><div id="chart1" class="chart-box"></div></div></div>
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-clock me-1"></i>经验要求分布</div><div id="chart2" class="chart-box"></div></div></div>
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-code-slash me-1"></i>核心技能词云</div><div id="wc1" class="chart-box"></div></div></div>
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-briefcase me-1"></i>热门岗位词云</div><div id="wc2" class="chart-box"></div></div></div>
+    <div class="col-12"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-trophy me-1"></i>热门岗位 TOP15</div><div id="chart3" style="height:440px"></div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/echarts-wordcloud.min.js') }}"></script>
+<script>
+var c1=echarts.init(document.getElementById('chart1')),c2=echarts.init(document.getElementById('chart2')),c3=echarts.init(document.getElementById('chart3'));
+var ringColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8'];
+var wcColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8','#f97316','#14b8a6'];
+function makeWC(el,data){
+    var c=echarts.init(el);
+    c.setOption({
+        tooltip:{
+            show:true,
+            formatter:function(p){
+                return p.name+': '+p.value;
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        series:[{
+            type:'wordCloud',
+            shape:'circle',
+            left:'center',
+            top:'center',
+            width:'90%',
+            height:'85%',
+            sizeRange:[14,56],
+            rotationRange:[-30,30],
+            rotationStep:10,
+            gridSize:10,
+            drawOutOfBound:false,
+            textStyle:{
+                fontFamily:'Microsoft YaHei',
+                fontWeight:'bold',
+                color:function(){
+                    return wcColors[Math.floor(Math.random()*wcColors.length)];
+                }
+            },
+            emphasis:{
+                textStyle:{
+                    shadowBlur:10,
+                    shadowColor:'#333'
+                }
+            },
+            data:data
+        }]
+    });
+    window.addEventListener('resize',()=>c.resize());
+}
+function load(cat){
+    var q=cat?'?category='+encodeURIComponent(cat):'';
+    fetch('/api/edu_distribution'+q).then(r=>r.json()).then(d=>{
+        c1.setOption({
+            tooltip:{
+                trigger:'item',
+                formatter:'{b}: {c} ({d}%)',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#334155'
+                }
+            },
+            color:ringColors,
+            series:[{
+                type:'pie',
+                radius:['45%','75%'],
+                center:['50%','55%'],
+                itemStyle:{
+                    borderRadius:8,
+                    borderColor:'#fff',
+                    borderWidth:3
+                },
+                label:{
+                    show:true,
+                    fontSize:13,
+                    color:'#334155',
+                    fontWeight:600,
+                    formatter:'{b}\n{d}%'
+                },
+                labelLine:{
+                    length:15,
+                    length2:20,
+                    smooth:true
+                },
+                emphasis:{
+                    itemStyle:{
+                        shadowBlur:15,
+                        shadowOffsetX:0,
+                        shadowColor:'rgba(0,0,0,0.3)'
+                    },
+                    scale:true,
+                    scaleSize:10
+                },
+                animationType:'expand',
+                animationDuration:1000,
+                animationEasing:'cubicOut',
+                data:d
+            }]
+        });
+    });
+    fetch('/api/exp_distribution'+q).then(r=>r.json()).then(d=>{
+        c2.setOption({
+            tooltip:{
+                trigger:'item',
+                formatter:'{b}: {c} ({d}%)',
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#334155'
+                }
+            },
+            color:ringColors,
+            series:[{
+                type:'pie',
+                radius:['0%','75%'],
+                center:['50%','55%'],
+                roseType:'area',
+                itemStyle:{
+                    borderRadius:8,
+                    borderColor:'#fff',
+                    borderWidth:3
+                },
+                label:{
+                    show:true,
+                    fontSize:13,
+                    color:'#334155',
+                    fontWeight:600,
+                    formatter:'{b}\n{d}%'
+                },
+                labelLine:{
+                    length:15,
+                    length2:20,
+                    smooth:true
+                },
+                emphasis:{
+                    itemStyle:{
+                        shadowBlur:15,
+                        shadowOffsetX:0,
+                        shadowColor:'rgba(0,0,0,0.3)'
+                    },
+                    scale:true,
+                    scaleSize:10
+                },
+                animationType:'expand',
+                animationDuration:1000,
+                animationEasing:'cubicOut',
+                data:d
+            }]
+        });
+    });
+    fetch('/api/top_jobs'+q).then(r=>r.json()).then(d=>{
+        c3.setOption({
+            tooltip:{
+                trigger:'axis',
+                axisPointer: {
+                    type: 'shadow'
+                },
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#334155'
+                }
+            },
+            color:['#667eea'],
+            xAxis:{
+                type:'value',
+                axisLabel:{
+                    color:'#64748b',
+                    fontSize:12
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: '#f1f5f9',
+                        type: 'dashed'
+                    }
+                }
+            },
+            yAxis:{
+                type:'category',
+                data:d.labels,
+                axisLabel:{
+                    color:'#334155',
+                    fontSize:12,
+                    fontWeight:500
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: '#cbd5e1'
+                    }
+                },
+                axisTick: {
+                    show: false
+                }
+            },
+            series:[{
+                type:'bar',
+                data:d.values,
+                barWidth:'55%',
+                itemStyle:{
+                    borderRadius:[0,8,8,0],
+                    color:new echarts.graphic.LinearGradient(1,0,0,0,[
+                        {offset:0,color:'#667eea'},
+                        {offset:1,color:'#764ba2'}
+                    ]),
+                    shadowColor: 'rgba(102, 126, 234, 0.4)',
+                    shadowBlur: 10,
+                    shadowOffsetX: 4
+                },
+                label:{
+                    show:true,
+                    position:'right',
+                    fontSize:12,
+                    color:'#334155',
+                    fontWeight:600
+                },
+                emphasis:{
+                    itemStyle:{
+                        color:new echarts.graphic.LinearGradient(1,0,0,0,[
+                            {offset:0,color:'#764ba2'},
+                            {offset:1,color:'#667eea'}
+                        ]),
+                        shadowColor: 'rgba(102, 126, 234, 0.6)',
+                        shadowBlur: 15,
+                        shadowOffsetX: 6
+                    }
+                },
+                animationDelay:function(idx){
+                    return idx*60;
+                },
+                animationDuration:1000,
+                animationEasing:'elasticOut'
+            }],
+            grid:{
+                top:20,
+                bottom:30,
+                left:160,
+                right:60
+            }
+        });
+    });
+}
+fetch('/api/category_list').then(r=>r.json()).then(list=>{var sel=document.getElementById('catFilter');list.forEach(c=>{var o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o)});});
+document.getElementById('catFilter').addEventListener('change',function(){load(this.value)});
+load('');
+fetch('/api/wordcloud_data?type=skills').then(r=>r.json()).then(d=>makeWC(document.getElementById('wc1'),d));
+fetch('/api/wordcloud_data?type=jobs').then(r=>r.json()).then(d=>makeWC(document.getElementById('wc2'),d));
+window.addEventListener('resize',()=>{c1.resize();c2.resize();c3.resize()});
+</script>
+{% endblock %}

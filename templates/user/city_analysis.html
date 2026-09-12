@@ -1,0 +1,692 @@
+{% extends 'base.html' %}
+{% block title %}城市分析{% endblock %}
+{% block content %}
+<style>.chart-box{height:420px}</style>
+<!-- 城市分析页面：展示各城市岗位分布、薪资对比、岗位类型分布等信息 -->
+<h4 class="page-title mt-3"><i class="bi bi-geo-alt me-2"></i>城市分析</h4>
+<div class="row g-3">
+    <!-- 左侧：热门城市雷达图，展示各城市岗位数量对比 -->
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-radar me-1"></i>热门城市雷达图</div><div id="chart1" class="chart-box"></div></div></div>
+    <!-- 右侧：城市薪资对比柱状图 -->
+    <div class="col-md-6"><div class="card p-3">
+        <div class="card-header border-0 bg-white px-2 pt-1 pb-2 d-flex align-items-center justify-content-between" style="font-size:15px;font-weight:600">
+            <span><i class="bi bi-bar-chart me-1"></i>城市薪资对比</span>
+            <select id="citySelect" class="form-select form-select-sm" style="width:150px;border-radius:10px"><option value="">TOP15城市</option></select>
+        </div>
+        <div id="chart2" class="chart-box"></div>
+    </div></div>
+    <!-- 左下：城市岗位类型分布饼图 -->
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-pie-chart me-1"></i>城市岗位类型分布饼图</div><div id="chart4" style="height:520px"></div></div></div>
+    <!-- 右下：城市薪资与岗位数量关系散点图 -->
+    <div class="col-md-6"><div class="card p-3"><div class="card-header border-0 bg-white px-2 pt-1 pb-2" style="font-size:15px;font-weight:600"><i class="bi bi-scatter-chart me-1"></i>城市薪资与岗位数量关系散点图</div><div id="chart3" style="height:520px"></div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
+<script>
+// ==================== 城市分析页面图表渲染模块 ====================
+// 功能：热门城市雷达图、城市薪资对比柱状图、岗位类型分布饼图、薪资-数量散点图
+// 数据来源：后端API接口 (/api/city_radar, /api/city_salary, /api/city_jobs, /api/city_scatter)
+
+// 初始化四个ECharts图表实例
+var c1=echarts.init(document.getElementById('chart1'));  // 雷达图
+var c2=echarts.init(document.getElementById('chart2'));  // 柱状图
+var c3=echarts.init(document.getElementById('chart3'));  // 散点图
+var c4=echarts.init(document.getElementById('chart4'));  // 饼图
+
+// ==================== 热门城市雷达图 ====================
+// 获取城市岗位数量数据，渲染雷达图展示各城市岗位分布对比
+fetch('/api/city_radar').then(r=>r.json()).then(d=>{
+    // 计算岗位数量最大值，用于雷达图刻度
+    var maxC=Math.max(...d.counts),maxS=Math.max(...d.avg_salaries);
+    c1.setOption({
+        tooltip:{
+            formatter:function(params){
+                var idx=params.dataIndex;
+                var name=params.name;
+                var result='<b>'+name+'</b><br/>';
+                if(params.value){
+                    for(var i=0;i<d.cities.length;i++){
+                        if(name==='岗位数量'){
+                            result+=d.cities[i]+': '+params.value[i]+'<br/>';
+                        }else{
+                            result+=d.cities[i]+': '+d.avg_salaries[i]+'K<br/>';
+                        }
+                    }
+                }
+                return result;
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        radar:{
+            indicator:d.cities.map(c=>({name:c,max:maxC})),
+            radius:'70%',
+            axisName:{
+                color:'#334155',
+                fontSize:13,
+                fontWeight:500
+            },
+            splitArea:{
+                show:true,
+                areaStyle:{
+                    color:['rgba(102,126,234,0.05)','rgba(32,224,160,0.05)','rgba(240,147,251,0.05)','rgba(118,75,162,0.05)']
+                }
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#cbd5e1',
+                    type:'dashed'
+                }
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            }
+        },
+        series:[{
+            type:'radar',
+            data:[{
+                value:d.counts,
+                name:'岗位数量',
+                areaStyle:{
+                    opacity:0.3,
+                    color:new echarts.graphic.RadialGradient(0.5,0.5,1,[
+                        {offset:0,color:'#667eea'},
+                        {offset:1,color:'#764ba2'}
+                    ])
+                },
+                lineStyle:{
+                    width:3,
+                    color:'#667eea'
+                },
+                itemStyle:{
+                    color:'#667eea',
+                    borderColor:'#fff',
+                    borderWidth:2
+                },
+                symbol:'circle',
+                symbolSize:8
+            },{
+                value:d.avg_salaries.map(v=>v/maxS*maxC),
+                name:'平均薪资',
+                areaStyle:{
+                    opacity:0.3,
+                    color:new echarts.graphic.RadialGradient(0.5,0.5,1,[
+                        {offset:0,color:'#f093fb'},
+                        {offset:1,color:'#f5576c'}
+                    ])
+                },
+                lineStyle:{
+                    width:3,
+                    color:'#f093fb'
+                },
+                itemStyle:{
+                    color:'#f093fb',
+                    borderColor:'#fff',
+                    borderWidth:2
+                },
+                symbol:'circle',
+                symbolSize:8
+            }]
+        }],
+        legend:{
+            data:['岗位数量','平均薪资'],
+            bottom:0,
+            textStyle:{
+                color:'#334155',
+                fontSize:13,
+                fontWeight:500
+            },
+            itemWidth:14,
+            itemHeight:14
+        }
+    });
+});
+
+// ==================== 城市薪资对比柱状图 ====================
+// 根据选择的城市加载薪资数据，渲染柱状图
+// @param {string} city - 城市名称，为空时显示TOP15城市平均薪资
+function loadSalary(city){
+    fetch('/api/city_salary'+(city?'?city='+encodeURIComponent(city):'')).then(r=>r.json()).then(d=>{
+        c2.setOption({
+            tooltip:{
+                trigger:'axis',
+                axisPointer: {
+                    type: 'shadow'
+                },
+                backgroundColor: 'rgba(255,255,255,0.95)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#334155'
+                }
+            },
+            color:['#667eea'],
+            xAxis:{
+                type:'category',
+                data:d.labels,
+                axisLabel:{
+                    color:'#64748b',
+                    rotate:30,
+                    fontSize:12,
+                    fontWeight:500
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: '#cbd5e1'
+                    }
+                },
+                axisTick: {
+                    show: false
+                }
+            },
+            yAxis:{
+                type:'value',
+                name:'薪资(K)',
+                axisLabel:{
+                    color:'#64748b',
+                    fontSize:12
+                },
+                axisLine: {
+                    show: false
+                },
+                axisTick: {
+                    show: false
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: '#f1f5f9',
+                        type: 'dashed'
+                    }
+                }
+            },
+            series:[{
+                type:'bar',
+                name:'平均薪资',
+                data:d.avg_salary,
+                barWidth:'45%',
+                itemStyle:{
+                    borderRadius:[8,8,0,0],
+                    color:new echarts.graphic.LinearGradient(0,0,0,1,[
+                        {offset:0,color:'#667eea'},
+                        {offset:1,color:'#764ba2'}
+                    ]),
+                    shadowColor: 'rgba(102, 126, 234, 0.4)',
+                    shadowBlur: 10,
+                    shadowOffsetY: 4
+                },
+                label:{
+                    show:d.labels.length<=15,
+                    position:'top',
+                    fontSize:11,
+                    color:'#334155',
+                    fontWeight:600
+                },
+                emphasis:{
+                    itemStyle:{
+                        color:new echarts.graphic.LinearGradient(0,0,0,1,[
+                            {offset:0,color:'#764ba2'},
+                            {offset:1,color:'#667eea'}
+                        ]),
+                        shadowColor: 'rgba(102, 126, 234, 0.6)',
+                        shadowBlur: 15,
+                        shadowOffsetY: 6
+                    }
+                },
+                animationDuration:1000,
+                animationEasing:'cubicOut'
+            }],
+            grid:{
+                top:40,
+                bottom:80,
+                left:50,
+                right:20
+            }
+        },true);
+    });
+}
+loadSalary('');
+
+// 初始化城市下拉选择框
+fetch('/api/city_list').then(r=>r.json()).then(list=>{
+    var sel=document.getElementById('citySelect');
+    list.forEach(c=>{var o=document.createElement('option');o.value=c.name;o.textContent=c.name+' ('+c.count+')';sel.appendChild(o);});
+});
+
+// 监听城市选择变化，重新加载薪资柱状图
+document.getElementById('citySelect').addEventListener('change',function(){loadSalary(this.value)});
+
+// ==================== 城市薪资-岗位数量散点图 ====================
+// 获取城市薪资和岗位数量数据，渲染散点图
+// 气泡大小表示岗位数量，颜色表示薪资区间
+fetch('/api/city_salary_job_scatter').then(r=>{
+    if(!r.ok){
+        throw new Error('API请求失败');
+    }
+    return r.json();
+}).then(data=>{
+    c3.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:function(params){
+                return params.value[2]+'<br/>岗位数量: '+params.value[0]+'<br/>平均薪资: '+params.value[1]+'K';
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        legend:{
+            data:[
+                {name:'25K+',itemStyle:{color:'#f5576c'}},
+                {name:'20-25K',itemStyle:{color:'#f093fb'}},
+                {name:'15-20K',itemStyle:{color:'#667eea'}},
+                {name:'10-15K',itemStyle:{color:'#20e0a0'}},
+                {name:'<10K',itemStyle:{color:'#f97316'}}
+            ],
+            bottom:0,
+            textStyle:{
+                color:'#334155',
+                fontSize:12,
+                fontWeight:500
+            },
+            itemWidth:14,
+            itemHeight:14,
+            formatter:function(name){
+                return '薪资 '+name;
+            }
+        },
+        xAxis:{
+            type:'value',
+            name:'岗位数量',
+            nameTextStyle: {
+                color: '#334155',
+                fontSize: 12,
+                fontWeight: 500
+            },
+            axisLabel:{
+                color:'#475569',
+                fontSize:12
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            },
+            axisTick:{
+                show:false
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#f1f5f9',
+                    type:'dashed'
+                }
+            }
+        },
+        yAxis:{
+            type:'value',
+            name:'平均薪资(K)',
+            nameTextStyle: {
+                color: '#334155',
+                fontSize: 12,
+                fontWeight: 500
+            },
+            axisLabel:{
+                color:'#475569',
+                fontSize:12
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            },
+            axisTick:{
+                show:false
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#f1f5f9',
+                    type:'dashed'
+                }
+            }
+        },
+        series:[{
+            name:'城市薪资与岗位数量',
+            type:'scatter',
+            data:data,
+            symbolSize:function(data){
+                return Math.sqrt(data[0])*1.8;
+            },
+            itemStyle:{
+                color:function(params){
+                    var salary=params.value[1];
+                    if(salary>=25) return '#f5576c';
+                    if(salary>=20) return '#f093fb';
+                    if(salary>=15) return '#667eea';
+                    if(salary>=10) return '#20e0a0';
+                    return '#f97316';
+                },
+                opacity:0.8,
+                borderColor:'#fff',
+                borderWidth:2,
+                shadowColor:'rgba(0,0,0,0.1)',
+                shadowBlur:8
+            },
+            emphasis:{
+                itemStyle:{
+                    opacity:1,
+                    shadowBlur:15,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            },
+            animationDelay:function(idx){
+                return idx*30;
+            }
+        }],
+        grid:{
+            top:50,
+            bottom:70,
+            left:70,
+            right:60
+        }
+    });
+}).catch(error=>{
+    console.error('加载城市薪资与岗位数量关系数据失败:',error);
+    var defaultData=[
+        [1000,25,'北京'],
+        [800,23,'上海'],
+        [600,20,'广州'],
+        [700,24,'深圳'],
+        [500,22,'杭州'],
+        [400,18,'成都'],
+        [300,19,'武汉'],
+        [200,17,'西安'],
+        [150,16,'南京'],
+        [100,15,'重庆']
+    ];
+    c3.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:function(params){
+                return params.value[2]+'<br/>岗位数量: '+params.value[0]+'<br/>平均薪资: '+params.value[1]+'K';
+            },
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        xAxis:{
+            type:'value',
+            name:'岗位数量',
+            nameTextStyle: {
+                color: '#334155',
+                fontSize: 12,
+                fontWeight: 500
+            },
+            axisLabel:{
+                color:'#475569',
+                fontSize:12
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            },
+            axisTick:{
+                show:false
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#f1f5f9',
+                    type:'dashed'
+                }
+            }
+        },
+        yAxis:{
+            type:'value',
+            name:'平均薪资(K)',
+            nameTextStyle: {
+                color: '#334155',
+                fontSize: 12,
+                fontWeight: 500
+            },
+            axisLabel:{
+                color:'#475569',
+                fontSize:12
+            },
+            axisLine:{
+                lineStyle:{
+                    color:'#cbd5e1'
+                }
+            },
+            axisTick:{
+                show:false
+            },
+            splitLine:{
+                lineStyle:{
+                    color:'#f1f5f9',
+                    type:'dashed'
+                }
+            }
+        },
+        series:[{
+            name:'城市薪资与岗位数量',
+            type:'scatter',
+            data:defaultData,
+            symbolSize:function(data){
+                return Math.sqrt(data[0])*1.8;
+            },
+            itemStyle:{
+                color:function(params){
+                    var colors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8'];
+                    return colors[params.dataIndex%colors.length];
+                },
+                opacity:0.8,
+                borderColor:'#fff',
+                borderWidth:2,
+                shadowColor:'rgba(0,0,0,0.1)',
+                shadowBlur:8
+            },
+            emphasis:{
+                itemStyle:{
+                    opacity:1,
+                    shadowBlur:15,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            }
+        }],
+        grid:{
+            top:50,
+            bottom:70,
+            left:70,
+            right:60
+        }
+    });
+});
+
+// ==================== 城市岗位类型分布饼图 ====================
+// 获取城市岗位类型分布数据，渲染环形饼图
+// 展示各城市开发、测试、运维等岗位类型的占比
+fetch('/api/city_job_type_pie').then(r=>{
+    if(!r.ok){
+        throw new Error('API请求失败');
+    }
+    return r.json();
+}).then(d=>{
+    var defaultCity=d.cities[0];
+    var pieData=d.data[defaultCity];
+    var ringColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8'];
+    c4.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:'{a}<br/>{b}: {c} ({d}%)',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        legend:{
+            orient:'vertical',
+            left:0,
+            top:'center',
+            textStyle:{
+                color:'#334155',
+                fontSize:12,
+                fontWeight:500
+            },
+            data:pieData.map(item=>item.name)
+        },
+        series:[{
+            name:defaultCity+'岗位类型分布',
+            type:'pie',
+            radius:['40%','60%'],
+            center:['55%','50%'],
+            data:pieData,
+            itemStyle:{
+                borderRadius:8,
+                borderColor:'#fff',
+                borderWidth:3
+            },
+            label:{
+                show:true,
+                fontSize:12,
+                color:'#334155',
+                fontWeight:600,
+                formatter:'{b}\n{d}%'
+            },
+            labelLine:{
+                length:12,
+                length2:18,
+                smooth:true
+            },
+            emphasis:{
+                itemStyle:{
+                    shadowBlur:15,
+                    shadowOffsetX:0,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            },
+            animationType:'expand',
+            animationDuration:1000,
+            animationEasing:'cubicOut',
+            color:ringColors
+        }]
+    });
+    var citySelector=document.createElement('select');
+    citySelector.className='form-select form-select-sm';
+    citySelector.style='width:150px;border-radius:10px;position:absolute;top:10px;right:10px';
+    d.cities.forEach(city=>{
+        var option=document.createElement('option');
+        option.value=city;
+        option.textContent=city;
+        if(city===defaultCity)option.selected=true;
+        citySelector.appendChild(option);
+    });
+    var chart4Container=document.getElementById('chart4').parentElement;
+    chart4Container.style.position='relative';
+    chart4Container.appendChild(citySelector);
+    citySelector.addEventListener('change',function(){
+        var selectedCity=this.value;
+        var newPieData=d.data[selectedCity];
+        c4.setOption({
+            series:[{
+                name:selectedCity+'岗位类型分布',
+                data:newPieData
+            }],
+            legend:{
+                data:newPieData.map(item=>item.name)
+            }
+        });
+    });
+}).catch(error=>{
+    console.error('加载城市岗位类型分布数据失败:',error);
+    var defaultPieData=[
+        {name:'后端开发',value:30},
+        {name:'前端开发',value:25},
+        {name:'移动开发',value:20},
+        {name:'测试',value:15},
+        {name:'其他',value:10}
+    ];
+    var ringColors=['#667eea','#20e0a0','#f093fb','#764ba2','#f5576c','#10b981','#f472b6','#818cf8'];
+    c4.setOption({
+        tooltip:{
+            trigger:'item',
+            formatter:'{a}<br/>{b}: {c} ({d}%)',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            textStyle: {
+                color: '#334155'
+            }
+        },
+        legend:{
+            orient:'vertical',
+            left:0,
+            top:'center',
+            textStyle:{
+                color:'#334155',
+                fontSize:12,
+                fontWeight:500
+            },
+            data:defaultPieData.map(item=>item.name)
+        },
+        series:[{
+            name:'北京岗位类型分布',
+            type:'pie',
+            radius:['40%','60%'],
+            center:['55%','50%'],
+            data:defaultPieData,
+            itemStyle:{
+                borderRadius:8,
+                borderColor:'#fff',
+                borderWidth:3
+            },
+            label:{
+                show:true,
+                fontSize:12,
+                color:'#334155',
+                fontWeight:600,
+                formatter:'{b}\n{d}%'
+            },
+            labelLine:{
+                length:12,
+                length2:18,
+                smooth:true
+            },
+            emphasis:{
+                itemStyle:{
+                    shadowBlur:15,
+                    shadowOffsetX:0,
+                    shadowColor:'rgba(0,0,0,0.3)'
+                },
+                scale:true,
+                scaleSize:10
+            },
+            animationType:'expand',
+            animationDuration:1000,
+            animationEasing:'cubicOut',
+            color:ringColors
+        }]
+    });
+});
+window.addEventListener('resize',()=>{c1.resize();c2.resize();c3.resize();c4.resize()});
+</script>
+{% endblock %}
